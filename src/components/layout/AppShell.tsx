@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useUIStore } from '@/stores/uiStore';
-import { appSettingsRepo, consumeStorageCorruption } from '@/lib/storage';
+import { consumeStorageCorruption } from '@/lib/storage';
+import { useSettings, usePatchSettings } from '@/hooks/query/useSettings';
 import { getLocalDateString } from '@/lib/calculator/timer';
 import { Dialog } from '@/components/common/Dialog';
 import { SideNav } from './SideNav';
@@ -26,19 +27,18 @@ export function AppShell({ children }: Props) {
     }
   }, [showToast]);
 
-  // 첫 접속 데이터 안내 모달 (D-7)
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => !appSettingsRepo.get().hasSeenOnboarding,
-  );
+  // 첫 접속 안내 모달 (D-7) — 서버 설정 기준
+  const { data: settings } = useSettings();
+  const patchSettings = usePatchSettings();
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const showOnboarding = !onboardingDismissed && settings != null && !settings.hasSeenOnboarding;
+
   const handleOnboardingClose = () => {
-    const settings = appSettingsRepo.get();
-    appSettingsRepo.save({
-      ...settings,
+    patchSettings.mutate({
       hasSeenOnboarding: true,
-      firstLaunchDate: settings.firstLaunchDate ?? getLocalDateString(),
-      updatedAt: new Date().toISOString(),
+      firstLaunchDate: settings?.firstLaunchDate ?? getLocalDateString(),
     });
-    setShowOnboarding(false);
+    setOnboardingDismissed(true);
   };
 
   // SCR-03 로직 편집은 셸 미적용
@@ -48,7 +48,7 @@ export function AppShell({ children }: Props) {
     <Dialog
       icon="👋"
       title="시작하기 전에 알려드려요"
-      description="기록한 데이터는 이 기기의 브라우저에만 저장돼요. 다른 기기와 동기화되지 않으며, 브라우저 데이터를 지우면 기록도 사라질 수 있어요. 가끔 설정에서 데이터를 내보내 백업해 주세요."
+      description="기록은 서버에 안전하게 저장돼요. 로그인만 하면 어느 기기에서나 이어서 볼 수 있어요. 꾸준히 기록해 보세요!"
       confirmLabel="시작하기"
       hideCancel
       onCancel={handleOnboardingClose}
@@ -70,7 +70,7 @@ export function AppShell({ children }: Props) {
             <span>⚠️</span>
             <span>
               <strong>개인정보 보호 모드</strong>에서 실행 중이에요.
-              브라우저 세션이 종료되면 데이터가 사라질 수 있어요. 일반 탭에서 사용해 주세요.
+              브라우저를 닫으면 로그인이 풀릴 수 있어요. 기록 자체는 서버에 안전하게 저장돼요.
             </span>
           </div>
         )}

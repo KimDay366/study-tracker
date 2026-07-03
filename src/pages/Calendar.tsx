@@ -6,6 +6,7 @@ import {
   useMonthlyRecords, useDailyRecord,
   useAddSession, useUpdateSession, useDeleteSession,
 } from '@/hooks/query/useDailyRecords';
+import { useWeeklyReviewsDone } from '@/hooks/query/useWeeklyReviews';
 import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { DayDetail } from '@/components/calendar/DayDetail';
 import { SessionModal } from '@/components/common/SessionModal';
@@ -16,6 +17,13 @@ import styles from './Calendar.module.css';
 
 function getToday(): string {
   const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toYMD(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -41,7 +49,23 @@ export function Calendar() {
     (monthRecords ?? []).forEach((r) => m.set(r.date, r));
     return m;
   }, [monthRecords]);
-  const { calendarCells, dayInfoMap, monthStats } = useCalendarMonth(year, month, recordMap);
+
+  // 달력에 표시되는 각 주의 일요일(weekStartDate) → 주간회고 완료 여부 서버 조회
+  const sundays = useMemo(() => {
+    const firstDay = new Date(year, month - 1, 1);
+    const startOffset = firstDay.getDay();
+    const lastDay = new Date(year, month, 0);
+    const totalCells = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+    const list: string[] = [];
+    for (let i = 0; i < totalCells; i += 7) {
+      list.push(toYMD(new Date(year, month - 1, 1 - startOffset + i)));
+    }
+    return list;
+  }, [year, month]);
+  const weeklyReviewDone = useWeeklyReviewsDone(sundays);
+
+  const { calendarCells, dayInfoMap, monthStats } =
+    useCalendarMonth(year, month, recordMap, weeklyReviewDone);
 
   // 오늘 레코드(세션 직접추가/수정의 기준). 미존재 시 null.
   const { data: calTodayRecord = null } = useDailyRecord(today);

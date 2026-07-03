@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import type { DailyRecord, Session } from '@/types';
-import { weeklyReviewRepo } from '@/lib/storage';
 import { calcAchievementPercent } from '@/lib/calculator/achievement';
 
 export interface CalendarDayInfo {
@@ -50,12 +49,13 @@ function toYMD(date: Date): string {
  * 해당 월의 달력 셀과 날짜별 집계 정보를 반환하는 hook.
  * 데이터는 호출부(서버 쿼리)에서 recordMap으로 주입받는다. recordMap이 바뀌면 재계산.
  * (세션 추가·수정·삭제 후 React Query 무효화 → 새 recordMap → 즉시 반영)
- * 일요일 주간 회고 표시는 아직 localStorage(weeklyReviewRepo) 기반이다.
+ * 일요일 주간 회고 완료 여부도 호출부에서 서버 조회해 weeklyReviewDoneDates(Set)로 주입한다.
  */
 export function useCalendarMonth(
   year: number,
   month: number,
   recordMap: Map<string, DailyRecord>,
+  weeklyReviewDoneDates?: Set<string>,
 ): UseCalendarMonthResult {
   return useMemo(() => {
     const today = toYMD(new Date());
@@ -129,11 +129,11 @@ export function useCalendarMonth(
 
       const info = dayInfoMap.get(dateStr) ?? null;
 
-      // 일요일 주간 회고 여부
+      // 일요일 주간 회고 여부 (호출부에서 주입된 서버 데이터)
       if (isSunday) {
-        const review = weeklyReviewRepo.getByWeekStart(dateStr);
+        const reviewDone = weeklyReviewDoneDates?.has(dateStr) ?? false;
         if (info) {
-          info.weeklyReviewDone = !!review;
+          info.weeklyReviewDone = reviewDone;
         }
         // info 없어도 reviewDone 정보가 필요하므로 빈 info 생성
         const cellWithReview: CalendarCell = {
@@ -148,7 +148,7 @@ export function useCalendarMonth(
         };
         // 회고 여부를 cell에도 보관 (일요일 전용)
         (cellWithReview as CalendarCell & { weeklyReviewDone?: boolean }).weeklyReviewDone =
-          !!review;
+          reviewDone;
         cells.push(cellWithReview);
         continue;
       }

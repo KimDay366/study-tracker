@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { DailyRecord, WeeklyReview as WeeklyReviewEntity } from '@/types';
-import { dailyRecordRepo, weeklyReviewRepo } from '@/lib/storage';
+import type { DailyRecord } from '@/types';
+import { useWeekRecords } from '@/hooks/query/useDailyRecords';
+import { useWeeklyReview, useUpsertWeeklyReview } from '@/hooks/query/useWeeklyReviews';
 import { QUOTES, getRandomQuote } from '@/lib/quotes';
 import { useUIStore } from '@/stores/uiStore';
 import styles from './WeeklyReview.module.css';
@@ -240,44 +241,27 @@ export function WeeklyReview() {
   const [currentQuoteIdx, setCurrentQuoteIdx] = useState(() => Math.floor(Math.random() * QUOTES.length));
   const [saving, setSaving] = useState(false);
 
-  const weekDates = getWeekDates(weekStartDate);
+  const weekDates = useMemo(() => getWeekDates(weekStartDate), [weekStartDate]);
   const todayStr = toYMD(new Date());
 
-  // 해당 주 7일 기록 로드
-  const [records, setRecords] = useState<Map<string, DailyRecord>>(() => {
-    const map = new Map<string, DailyRecord>();
-    weekDates.forEach(d => {
-      const r = dailyRecordRepo.getByDate(d);
-      if (r) map.set(d, r);
-    });
-    return map;
+  // 해당 주 7일 기록 (서버 조회, 달력/타이머와 캐시 공유)
+  const recordQueries = useWeekRecords(weekDates);
+  const records = new Map<string, DailyRecord>();
+  recordQueries.forEach((q, i) => {
+    if (q.data) records.set(weekDates[i], q.data);
   });
 
-  // 기존 회고 로드
+  // 기존 회고 로드 (서버)
+  const { data: existingReview } = useWeeklyReview(weekStartDate);
   useEffect(() => {
-    const existing = weeklyReviewRepo.getByWeekStart(weekStartDate);
-    if (existing) {
-      setKeep(existing.keep);
-      setProblem(existing.problem);
-      setTryText(existing.try);
-      // 저장된 pledge는 usedBuiltinQuote 여부와 무관하게 항상 복원
-      setPledge(existing.pledge);
-    } else {
-      setKeep('');
-      setProblem('');
-      setTryText('');
-      setPledge('');
-    }
+    if (existingReview === undefined) return; // 로딩 중엔 현재 입력 유지
+    setKeep(existingReview?.keep ?? '');
+    setProblem(existingReview?.problem ?? '');
+    setTryText(existingReview?.try ?? '');
+    // 저장된 pledge는 usedBuiltinQuote 여부와 무관하게 항상 복원
+    setPledge(existingReview?.pledge ?? '');
     setPledgeVisible(false);
-    // 해당 주 기록 갱신
-    const map = new Map<string, DailyRecord>();
-    const dates = getWeekDates(weekStartDate);
-    dates.forEach(d => {
-      const r = dailyRecordRepo.getByDate(d);
-      if (r) map.set(d, r);
-    });
-    setRecords(map);
-  }, [weekStartDate]);
+  }, [existingReview]);
 
   const handlePrevWeek = useCallback(() => {
     setWeekStartDate(prev => addWeeks(prev, -1));
@@ -304,6 +288,8 @@ export function WeeklyReview() {
     });
   }, []);
 
+  const upsertMutation = useUpsertWeeklyReview();
+
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
@@ -323,32 +309,24 @@ export function WeeklyReview() {
         builtinQuoteIndex = null;
       }
 
-      const now = new Date().toISOString();
-      const existing = weeklyReviewRepo.getByWeekStart(weekStartDate);
-
-      const review: WeeklyReviewEntity = {
+      await upsertMutation.mutateAsync({
         weekStartDate,
-        keep,
-        problem,
-        try: tryText,
-        pledge: pledgeText,
-        usedBuiltinQuote,
-        builtinQuoteIndex,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      };
-
-      weeklyReviewRepo.save(review);
+        body: {
+          keep,
+          problem,
+          try: tryText,
+          pledge: pledgeText,
+          usedBuiltinQuote,
+          builtinQuoteIndex,
+        },
+      });
       showToast('회고가 저장됐어요.', 'success');
-    } catch (e) {
-      const msg = e instanceof Error && e.message === 'QUOTA_EXCEEDED'
-        ? '저장 공간이 가득 찼어요. 설정에서 오래된 데이터를 삭제해 주세요.'
-        : '저장 중 오류가 발생했어요.';
-      showToast(msg, 'danger');
+    } catch {
+      showToast('저장 중 오류가 발생했어요.', 'danger');
     } finally {
       setSaving(false);
     }
-  }, [weekStartDate, keep, problem, tryText, pledge, showToast]);
+  }, [weekStartDate, keep, problem, tryText, pledge, showToast, upsertMutation]);
 
   const isNotSunday = !isTodaySunday() && weekStartDate === thisWeekSunday;
   const weekRangeLabel = formatWeekRange(weekStartDate);

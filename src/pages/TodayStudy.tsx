@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useBlocker } from 'react-router-dom';
-import type { Category, DailyRecord, Session } from '@/types';
+import type { Category, Session } from '@/types';
 import { useTimerStore, loadSessionDraft, clearSessionDraft } from '@/stores/timerStore';
 import type { SessionDraft } from '@/stores/timerStore';
 import { useTodayStore } from '@/stores/todayStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { dailyRecordRepo, appSettingsRepo, routineSettingRepo } from '@/lib/storage';
 import { useLogics } from '@/hooks/query/useLogics';
+import { useDailyRecord, useAddSession, useUpdateSession, useDeleteSession } from '@/hooks/query/useDailyRecords';
+import { useSettings, usePatchSettings } from '@/hooks/query/useSettings';
+import { useRoutineQuery } from '@/hooks/query/useRoutine';
 import { formatElapsedTime, isSameLocalDate, getLocalMidnight, getLocalDateString } from '@/lib/calculator/timer';
 import { calcAchievementPercent } from '@/lib/calculator/achievement';
 import { HeartDisplay } from '@/components/common/HeartDisplay';
@@ -35,16 +37,12 @@ function formatDateLabel(dateStr: string): { date: string; day: string } {
   };
 }
 
-function getAccumulatedMinutes(record: DailyRecord | null, categoryId: string): number {
-  if (!record) return 0;
-  return record.sessions
-    .filter(s => s.categoryId === categoryId)
-    .reduce((acc, s) => acc + s.durationMinutes, 0);
+function getAccumulatedMinutes(sessions: Session[], categoryId: string): number {
+  return sessions.filter(s => s.categoryId === categoryId).reduce((acc, s) => acc + s.durationMinutes, 0);
 }
 
-function getTotalAccumulatedMinutes(record: DailyRecord | null): number {
-  if (!record) return 0;
-  return record.sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
+function getTotalAccumulatedMinutes(sessions: Session[]): number {
+  return sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
 }
 
 export function TodayStudy() {
@@ -62,16 +60,24 @@ export function TodayStudy() {
   const restoreFromDraft = useTimerStore(s => s.restoreFromDraft);
 
   const selectedLogicId = useTodayStore(s => s.selectedLogicId);
-  const todayRecord = useTodayStore(s => s.todayRecord);
   const setSelectedLogicId = useTodayStore(s => s.setSelectedLogicId);
-  const setTodayRecord = useTodayStore(s => s.setTodayRecord);
 
   const showToast = useUIStore(s => s.showToast);
   const bannerVisible = useUIStore(s => s.bannerVisible);
   const setBannerVisible = useUIStore(s => s.setBannerVisible);
 
-  // 로직 목록: 서버(React Query)에서 조회 — 로직 관리/생성과 동일 소스
+  // 서버 데이터 훅
   const { data: logics = [] } = useLogics();
+  const todayDateStr = getTodayDateString();
+  const { data: todayRecord = null } = useDailyRecord(todayDateStr);
+  const { data: settingsData } = useSettings();
+  const { data: routineData } = useRoutineQuery();
+
+  // 뮤테이션 훅 (최상위 선언 — Rules of Hooks)
+  const addSessionMutation = useAddSession();
+  const updateSessionMutation = useUpdateSession();
+  const deleteSessionMutation = useDeleteSession();
+  const patchSettingsMutation = usePatchSettings();
 
   // 로컬 상태
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -93,7 +99,6 @@ export function TodayStudy() {
   // handleStop 최신 참조 (blocker 핸들러에서 stale closure 방지)
   const handleStopRef = useRef<((skipShortCheck?: boolean) => void) | null>(null);
 
-  const todayDateStr = getTodayDateString();
   const { date: dateLabel, day: dayLabel } = formatDateLabel(todayDateStr);
 
   // 선택된 로직
@@ -106,19 +111,6 @@ export function TodayStudy() {
       setSelectedLogicId(logics[0].id);
     }
   }, [logics, selectedLogicId, setSelectedLogicId]);
-
-  // 오늘 DailyRecord 로드 (날짜가 바뀌거나 로직이 바뀌면 재로드)
-  useEffect(() => {
-    if (!selectedLogic) return;
-    const existing = dailyRecordRepo.getByDate(todayDateStr);
-    if (existing && existing.logicId === selectedLogic.id) {
-      setTodayRecord(existing);
-    } else if (!existing) {
-      // 오늘 레코드 없음 — null로 초기화(정지 후 첫 세션 저장 시 생성)
-      setTodayRecord(null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLogic?.id, todayDateStr]);
 
   // 마운트 시 sessionStorage draft 확인 → 복원 여부 Dialog
   useEffect(() => {
@@ -151,15 +143,16 @@ export function TodayStudy() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  // stale closure 방지: selectedLogic·todayDateStr·저장 관련 값들을 ref로
+  // stale closure 방지: selectedLogic·저장 관련 값들을 ref로
   const selectedLogicRef = useRef(selectedLogic);
   selectedLogicRef.current = selectedLogic;
-  const setTodayRecordRef = useRef(setTodayRecord);
-  setTodayRecordRef.current = setTodayRecord;
   const showToastRef = useRef(showToast);
   showToastRef.current = showToast;
   const stopTimerRef = useRef(stopTimer);
   stopTimerRef.current = stopTimer;
+  // 뮤테이션 ref (setInterval 내부에서 stale closure 방지)
+  const addSessionMutationRef = useRef(addSessionMutation);
+  addSessionMutationRef.current = addSessionMutation;
 
   // setInterval: 실행 중일 때만 tick + 자정 분리 감지
   useEffect(() => {
@@ -196,69 +189,58 @@ export function TodayStudy() {
         })),
       });
 
-      const nowIso = new Date().toISOString();
-
       // 전날 세션: start ~ 자정 직전. 저장 시간은 화면 표시와 동일하게 '일시정지 제외' 실제 공부시간으로 계산.
       // (전체 실제 경과 - 자정 이후 구간) → 자정 전에 일시정지가 끼어도 전날 기록이 부풀지 않는다.
       // 자정 이후 구간은 현재 running으로 이어온 시간이라 일시정지가 없어 벽시계 = 실제다.
       const todayWallMs = now - midnight;
       const prevDur = Math.floor(Math.max(0, getElapsedMsRef.current() - todayWallMs) / 60000);
-      if (prevDur >= 1) {
-        const prevSession: Session = {
-          id: generateId(),
-          categoryId: catId,
-          sessionStartTimestamp: start,
-          sessionEndTimestamp: midnight - 1,
-          durationMinutes: prevDur,
-          isManuallyEdited: false,
-          editedAt: null,
-          source: 'timer',
-        };
-        const prevExisting = dailyRecordRepo.getByDate(prevDateStr);
-        const prevRecord: DailyRecord = prevExisting
-          ? { ...prevExisting, sessions: [...prevExisting.sessions, prevSession], updatedAt: nowIso }
-          : { date: prevDateStr, logicId: logic.id, logicSnapshot: makeSnapshot(), sessions: [prevSession], achievementCache: null, createdAt: nowIso, updatedAt: nowIso };
-        try {
-          dailyRecordRepo.saveSessionAndUpdateCache(prevRecord);
-        } catch {
-          // 저장 실패 시 그냥 계속 (MAJ-03 처리와 독립)
-        }
-      }
-
-      // 오늘 세션: midnight ~ now (타이머 리셋해 새로운 세션으로 이어감, 1분 미만이면 조용히 누락)
       const todayDur = Math.floor(todayWallMs / 60000);
-      if (todayDur >= 1) {
-        const todaySession: Session = {
-          id: generateId(),
-          categoryId: catId,
-          sessionStartTimestamp: midnight,
-          sessionEndTimestamp: now,
-          durationMinutes: todayDur,
-          isManuallyEdited: false,
-          editedAt: null,
-          source: 'timer',
-        };
-        const todayExisting = dailyRecordRepo.getByDate(todayStr);
-        const todayRecord: DailyRecord = todayExisting
-          ? { ...todayExisting, sessions: [...todayExisting.sessions, todaySession], updatedAt: nowIso }
-          : { date: todayStr, logicId: logic.id, logicSnapshot: makeSnapshot(), sessions: [todaySession], achievementCache: null, createdAt: nowIso, updatedAt: nowIso };
-        try {
-          dailyRecordRepo.saveSessionAndUpdateCache(todayRecord);
-        } catch {
-          // 저장 실패 시 그냥 계속
-        }
-      }
 
-      // 타이머를 오늘 자정부터 새로 시작(세션 분리)
+      // 타이머를 오늘 자정부터 새로 시작(세션 분리) — 저장 전에 리셋해 다음 tick이 중복 분리하지 않도록
       useTimerStore.setState({
         sessionStartTimestamp: midnight,
         pauseOffset: 0,
         pausedAt: null,
       });
 
-      const saved = dailyRecordRepo.getByDate(todayStr);
-      setTodayRecordRef.current(saved);
-      showToastRef.current('자정이 지나 세션이 자동으로 분리되었어요.', 'success');
+      // 전날·오늘 세션을 비동기로 저장 (각각 useAddSession().mutateAsync 호출)
+      void (async () => {
+        try {
+          if (prevDur >= 1) {
+            await addSessionMutationRef.current.mutateAsync({
+              date: prevDateStr,
+              body: {
+                id: generateId(),
+                categoryId: catId,
+                sessionStartTimestamp: start,
+                sessionEndTimestamp: midnight - 1,
+                durationMinutes: prevDur,
+                source: 'timer',
+                logicId: logic.id,
+                logicSnapshot: makeSnapshot(),
+              },
+            });
+          }
+          if (todayDur >= 1) {
+            await addSessionMutationRef.current.mutateAsync({
+              date: todayStr,
+              body: {
+                id: generateId(),
+                categoryId: catId,
+                sessionStartTimestamp: midnight,
+                sessionEndTimestamp: now,
+                durationMinutes: todayDur,
+                source: 'timer',
+                logicId: logic.id,
+                logicSnapshot: makeSnapshot(),
+              },
+            });
+          }
+          showToastRef.current('자정이 지나 세션이 자동으로 분리되었어요.', 'success');
+        } catch {
+          // 저장 실패 시 그냥 계속 (MAJ-03 처리와 독립)
+        }
+      })();
     }, 1000);
     return () => clearInterval(id);
   // timerStatus 변경 시만 재등록
@@ -266,17 +248,19 @@ export function TodayStudy() {
   }, [timerStatus]);
 
   // 로직 선택 핸들러
-  const handleSelectLogic = useCallback((logicId: string) => {
+  const handleSelectLogic = useCallback(async (logicId: string) => {
     if (timerStatus !== 'idle') {
       showToast('타이머가 실행 중이에요. 종료 후 변경해 주세요.', 'warning');
       return;
     }
     setSelectedLogicId(logicId);
-    const now = new Date().toISOString();
-    const settings = appSettingsRepo.get();
-    appSettingsRepo.save({ ...settings, lastUsedLogicId: logicId, updatedAt: now });
+    try {
+      await patchSettingsMutation.mutateAsync({ lastUsedLogicId: logicId });
+    } catch {
+      // 설정 저장 실패는 UX에 치명적이지 않으므로 조용히 무시
+    }
     setSelectorOpen(false);
-  }, [timerStatus, showToast, setSelectedLogicId]);
+  }, [timerStatus, showToast, setSelectedLogicId, patchSettingsMutation]);
 
   // 카테고리 선택 핸들러
   const handleSelectCategory = useCallback((catId: string) => {
@@ -303,7 +287,7 @@ export function TodayStudy() {
   }, [stopTimer]);
 
   // 정지 — 세션 저장 및 achievementCache 갱신
-  const handleStop = useCallback((skipShortCheck = false) => {
+  const handleStop = useCallback(async (skipShortCheck = false) => {
     if (!selectedLogic || !timerCategoryId || sessionStartTimestamp === null) return;
 
     const now = Date.now();
@@ -321,24 +305,16 @@ export function TodayStudy() {
 
     // 1분 이상인 경우만 저장
     if (durationMinutes >= 1) {
-      const session: Session = {
-        id: generateId(),
-        categoryId: timerCategoryId,
-        sessionStartTimestamp,
-        sessionEndTimestamp: now,
-        durationMinutes,
-        isManuallyEdited: false,
-        editedAt: null,
-        source: 'timer',
-      };
-
-      // 오늘 레코드 생성 또는 갱신
-      const existing = dailyRecordRepo.getByDate(todayDateStr);
-      const nowIso = new Date().toISOString();
-      const updatedRecord: DailyRecord = existing
-        ? { ...existing, sessions: [...existing.sessions, session], updatedAt: nowIso }
-        : {
-            date: todayDateStr,
+      try {
+        await addSessionMutation.mutateAsync({
+          date: todayDateStr,
+          body: {
+            id: generateId(),
+            categoryId: timerCategoryId,
+            sessionStartTimestamp,
+            sessionEndTimestamp: now,
+            durationMinutes,
+            source: 'timer',
             logicId: selectedLogic.id,
             logicSnapshot: {
               name: selectedLogic.name,
@@ -351,36 +327,22 @@ export function TodayStudy() {
                 targetPercent: c.targetPercent,
               })),
             },
-            sessions: [session],
-            achievementCache: null,
-            createdAt: nowIso,
-            updatedAt: nowIso,
-          };
-
-      try {
-        dailyRecordRepo.saveSessionAndUpdateCache(updatedRecord);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : '';
-        showToast(
-          msg === 'QUOTA_EXCEEDED' ? '저장 공간이 가득 찼어요.' : '저장 중 오류가 발생했어요.',
-          'danger',
-        );
+          },
+        });
+        showToast(`${durationMinutes}분 기록 완료!`, 'success');
+      } catch {
+        showToast('저장 중 오류가 발생했어요.', 'danger');
         stopTimer();
         setElapsedMs(0);
         return;
       }
-
-      // 저장 후 캐시 포함 레코드를 다시 로드해 스토어 반영
-      const saved = dailyRecordRepo.getByDate(todayDateStr);
-      setTodayRecord(saved);
-      showToast(`${durationMinutes}분 기록 완료!`, 'success');
     }
 
     stopTimer();
     setElapsedMs(0);
   }, [
     selectedLogic, timerCategoryId, sessionStartTimestamp,
-    todayDateStr, setTodayRecord, stopTimer, pauseTimer, showToast,
+    todayDateStr, addSessionMutation, stopTimer, pauseTimer, showToast,
   ]);
   // handleStop 최신 참조 갱신
   handleStopRef.current = handleStop;
@@ -391,7 +353,7 @@ export function TodayStudy() {
   }, [blocker.state, pauseTimer]);
 
   // 재개 — 일시정지 중 자정 경과 시 분리 저장 후 재개
-  const handleResume = useCallback(() => {
+  const handleResume = useCallback(async () => {
     const timerState = useTimerStore.getState();
     const { pausedAt, sessionStartTimestamp: start, categoryId: catId } = timerState;
     if (timerState.status !== 'paused' || pausedAt === null || start === null || !catId) {
@@ -414,8 +376,6 @@ export function TodayStudy() {
     }
 
     const prevDateStr = getLocalDateString(start);
-    const nowDateStr = getLocalDateString(now);
-    const nowIso = new Date().toISOString();
 
     const makeSnapshot = () => ({
       name: logic.name,
@@ -429,26 +389,6 @@ export function TodayStudy() {
     // 전날 세션: start ~ pausedAt. 저장 시간은 '일시정지 제외' 실제 공부시간으로 계산.
     // (paused 상태이므로 getElapsedMs가 pausedAt 기준 누적 공부시간을 반환 = 벽시계 부풀림 방지)
     const prevDur = Math.floor(getElapsedMsRef.current() / 60000);
-    const prevSession: Session = {
-      id: generateId(),
-      categoryId: catId,
-      sessionStartTimestamp: start,
-      sessionEndTimestamp: pausedAt,
-      durationMinutes: prevDur,
-      isManuallyEdited: false,
-      editedAt: null,
-      source: 'timer',
-    };
-    const prevExisting = dailyRecordRepo.getByDate(prevDateStr);
-    const prevRecord: DailyRecord = prevExisting
-      ? { ...prevExisting, sessions: [...prevExisting.sessions, prevSession], updatedAt: nowIso }
-      : { date: prevDateStr, logicId: logic.id, logicSnapshot: makeSnapshot(), sessions: [prevSession], achievementCache: null, createdAt: nowIso, updatedAt: nowIso };
-
-    try {
-      dailyRecordRepo.saveSessionAndUpdateCache(prevRecord);
-    } catch {
-      // 저장 실패 시 그냥 재개
-    }
 
     // 타이머를 재개 시점(now)에서 새 세션으로 리셋
     useTimerStore.setState({
@@ -458,10 +398,25 @@ export function TodayStudy() {
       status: 'running',
     });
 
-    const todaySaved = dailyRecordRepo.getByDate(nowDateStr);
-    setTodayRecord(todaySaved);
-    showToast('자정이 지나 세션이 자동으로 분리되었어요.', 'success');
-  }, [selectedLogic, resumeTimer, setTodayRecord, showToast]);
+    try {
+      await addSessionMutation.mutateAsync({
+        date: prevDateStr,
+        body: {
+          id: generateId(),
+          categoryId: catId,
+          sessionStartTimestamp: start,
+          sessionEndTimestamp: pausedAt,
+          durationMinutes: prevDur,
+          source: 'timer',
+          logicId: logic.id,
+          logicSnapshot: makeSnapshot(),
+        },
+      });
+      showToast('자정이 지나 세션이 자동으로 분리되었어요.', 'success');
+    } catch {
+      // 저장 실패 시 그냥 재개 (타이머는 이미 running으로 전환됨)
+    }
+  }, [selectedLogic, resumeTimer, addSessionMutation, showToast]);
 
   // Draft 복원 핸들러
   const handleDraftRestore = useCallback(() => {
@@ -484,72 +439,72 @@ export function TodayStudy() {
   }, []);
 
   // 세션 저장 (추가/수정 공통)
-  const handleSessionSave = useCallback((session: Session) => {
+  const handleSessionSave = useCallback(async (session: Session) => {
     if (!selectedLogic) return;
-    const existing = dailyRecordRepo.getByDate(todayDateStr);
 
     try {
       if (sessionModalMode === 'edit' && editTarget) {
-        dailyRecordRepo.updateSession(todayDateStr, editTarget.id, session);
-      } else {
-        // add 모드: record 없으면 신규 생성
-        const nowIso = new Date().toISOString();
-        const record: DailyRecord = existing ?? {
+        await updateSessionMutation.mutateAsync({
           date: todayDateStr,
-          logicId: selectedLogic.id,
-          logicSnapshot: {
-            name: selectedLogic.name,
-            totalTargetMinutes: selectedLogic.totalTargetMinutes,
-            categories: selectedLogic.categories.map(c => ({
-              id: c.id, name: c.name, colorVar: c.colorVar,
-              targetMinutes: c.targetMinutes, targetPercent: c.targetPercent,
-            })),
+          sessionId: editTarget.id,
+          body: {
+            categoryId: session.categoryId,
+            sessionStartTimestamp: session.sessionStartTimestamp,
+            sessionEndTimestamp: session.sessionEndTimestamp,
+            durationMinutes: session.durationMinutes,
+            isManuallyEdited: session.isManuallyEdited,
+            editedAt: session.editedAt,
           },
-          sessions: [],
-          achievementCache: null,
-          createdAt: nowIso,
-          updatedAt: nowIso,
-        };
-        dailyRecordRepo.saveSessionAndUpdateCache({ ...record, sessions: [...record.sessions, session] });
+        });
+      } else {
+        await addSessionMutation.mutateAsync({
+          date: todayDateStr,
+          body: {
+            id: session.id,
+            categoryId: session.categoryId,
+            sessionStartTimestamp: session.sessionStartTimestamp,
+            sessionEndTimestamp: session.sessionEndTimestamp,
+            durationMinutes: session.durationMinutes,
+            source: session.source,
+            logicId: selectedLogic.id,
+            logicSnapshot: {
+              name: selectedLogic.name,
+              totalTargetMinutes: selectedLogic.totalTargetMinutes,
+              categories: selectedLogic.categories.map(c => ({
+                id: c.id, name: c.name, colorVar: c.colorVar,
+                targetMinutes: c.targetMinutes, targetPercent: c.targetPercent,
+              })),
+            },
+          },
+        });
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '';
-      showToast(
-        msg === 'QUOTA_EXCEEDED' ? '저장 공간이 가득 찼어요.' : '저장 중 오류가 발생했어요.',
-        'danger',
-      );
+    } catch {
+      showToast('저장 중 오류가 발생했어요.', 'danger');
       return;
     }
 
-    const saved = dailyRecordRepo.getByDate(todayDateStr);
-    setTodayRecord(saved);
     setSessionModalMode(null);
     setEditTarget(null);
     showToast('세션이 저장됐어요.', 'success');
-  }, [selectedLogic, todayDateStr, sessionModalMode, editTarget, setTodayRecord, showToast]);
+  }, [selectedLogic, todayDateStr, sessionModalMode, editTarget, addSessionMutation, updateSessionMutation, showToast]);
 
   // 세션 삭제 확인
-  const handleDeleteConfirm = useCallback(() => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!deleteTarget) return;
     try {
-      dailyRecordRepo.deleteSession(todayDateStr, deleteTarget.id);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '';
-      showToast(
-        msg === 'QUOTA_EXCEEDED' ? '저장 공간이 가득 찼어요.' : '저장 중 오류가 발생했어요.',
-        'danger',
-      );
+      await deleteSessionMutation.mutateAsync({ date: todayDateStr, sessionId: deleteTarget.id });
+    } catch {
+      showToast('삭제 중 오류가 발생했어요.', 'danger');
       setDeleteTarget(null);
       return;
     }
-    const saved = dailyRecordRepo.getByDate(todayDateStr);
-    setTodayRecord(saved);
     setDeleteTarget(null);
     showToast('세션이 삭제됐어요.', 'success');
-  }, [deleteTarget, todayDateStr, setTodayRecord, showToast]);
+  }, [deleteTarget, todayDateStr, deleteSessionMutation, showToast]);
 
   // 달성률 계산
-  const totalAccumulatedMinutes = getTotalAccumulatedMinutes(todayRecord);
+  const sessions = todayRecord?.sessions ?? [];
+  const totalAccumulatedMinutes = getTotalAccumulatedMinutes(sessions);
   const totalTarget = selectedLogic?.totalTargetMinutes ?? 0;
   const totalAchievementPct = totalTarget > 0
     ? (todayRecord?.achievementCache?.totalAchievementPercent
@@ -559,7 +514,7 @@ export function TodayStudy() {
     ? selectedLogic.categories.every(cat => {
         const pct = todayRecord?.achievementCache?.categoryAchievements
           .find(a => a.categoryId === cat.id)?.achievementPercent
-          ?? calcAchievementPercent(getAccumulatedMinutes(todayRecord, cat.id), cat.targetMinutes);
+          ?? calcAchievementPercent(getAccumulatedMinutes(sessions, cat.id), cat.targetMinutes);
         return pct >= 100;
       })
     : false;
@@ -593,7 +548,7 @@ export function TodayStudy() {
           <button className={`${btnClass} ${pauseCls}`} onClick={pauseTimer} aria-label="일시정지">
             일시정지
           </button>
-          <button className={`${btnClass} ${stopCls}`} onClick={() => handleStop()} aria-label="타이머 정지">
+          <button className={`${btnClass} ${stopCls}`} onClick={() => void handleStop()} aria-label="타이머 정지">
             정지
           </button>
         </>
@@ -602,42 +557,41 @@ export function TodayStudy() {
     // paused
     return (
       <>
-        <button className={`${btnClass} ${startCls}`} onClick={handleResume} aria-label="타이머 재개">
+        <button className={`${btnClass} ${startCls}`} onClick={() => void handleResume()} aria-label="타이머 재개">
           재개
         </button>
-        <button className={`${btnClass} ${stopCls}`} onClick={() => handleStop()} aria-label="타이머 정지">
+        <button className={`${btnClass} ${stopCls}`} onClick={() => void handleStop()} aria-label="타이머 정지">
           정지
         </button>
       </>
     );
   };
 
+  // 루틴 배너 계산 (render 시점에 settingsData/routineData 사용)
+  const { banner } = resolveRoutineLogic({
+    routine: routineData ?? null,
+    logics,
+    lastUsedLogicId: settingsData?.lastUsedLogicId ?? selectedLogicId,
+    hasExistingRecord: !!todayRecord,
+  });
+  const bannerText = getRoutineBannerText(banner);
+
   return (
     <>
       {/* 루틴 배너 */}
-      {bannerVisible && (() => {
-        const { banner } = resolveRoutineLogic({
-          routine: routineSettingRepo.get(),
-          logics,
-          lastUsedLogicId: selectedLogicId,
-          hasExistingRecord: !!todayRecord,
-        });
-        const bannerText = getRoutineBannerText(banner);
-        if (!bannerText) return null;
-        return (
-          <div className={styles.routineBanner} role="banner">
-            <span>📅</span>
-            <span>{bannerText}</span>
-            <button
-              className={styles.bannerClose}
-              onClick={() => setBannerVisible(false)}
-              aria-label="배너 닫기"
-            >
-              ×
-            </button>
-          </div>
-        );
-      })()}
+      {bannerVisible && bannerText && (
+        <div className={styles.routineBanner} role="banner">
+          <span>📅</span>
+          <span>{bannerText}</span>
+          <button
+            className={styles.bannerClose}
+            onClick={() => setBannerVisible(false)}
+            aria-label="배너 닫기"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* 모바일 헤더 */}
       {!isTabletOrPC && (
@@ -660,7 +614,7 @@ export function TodayStudy() {
                     className={`${styles.logicDropdownItem}${l.id === selectedLogicId ? ` ${styles.logicDropdownItemActive}` : ''}`}
                     role="option"
                     aria-selected={l.id === selectedLogicId}
-                    onClick={() => handleSelectLogic(l.id)}
+                    onClick={() => void handleSelectLogic(l.id)}
                   >
                     {l.name}
                     {l.id === selectedLogicId && <span className={styles.logicDropdownCheck}>✓</span>}
@@ -699,7 +653,7 @@ export function TodayStudy() {
                       className={`${styles.logicDropdownItem}${l.id === selectedLogicId ? ` ${styles.logicDropdownItemActive}` : ''}`}
                       role="option"
                       aria-selected={l.id === selectedLogicId}
-                      onClick={() => handleSelectLogic(l.id)}
+                      onClick={() => void handleSelectLogic(l.id)}
                     >
                       {l.name}
                       {l.id === selectedLogicId && <span className={styles.logicDropdownCheck}>✓</span>}
@@ -791,7 +745,7 @@ export function TodayStudy() {
             selectedLogic.categories.map((cat: Category) => {
               const isSelected = selectedCategoryId === cat.id;
               const isRunning = timerCategoryId === cat.id && timerStatus !== 'idle';
-              const accumulatedMin = getAccumulatedMinutes(todayRecord, cat.id);
+              const accumulatedMin = getAccumulatedMinutes(sessions, cat.id);
               const catPct = todayRecord?.achievementCache?.categoryAchievements
                 .find(a => a.categoryId === cat.id)?.achievementPercent
                 ?? calcAchievementPercent(accumulatedMin, cat.targetMinutes);
@@ -862,11 +816,11 @@ export function TodayStudy() {
         {selectedLogic && (
           <section className={styles.sessionHistory} aria-label="오늘 세션 내역">
             <div className={styles.sectionTitle}>오늘 세션 내역</div>
-            {!todayRecord || todayRecord.sessions.length === 0 ? (
+            {sessions.length === 0 ? (
               <div className={styles.sessionEmpty}>오늘 아직 세션 기록이 없어요.</div>
             ) : (
               <div className={styles.sessionList}>
-                {todayRecord.sessions.map(sess => {
+                {sessions.map(sess => {
                   const cat = selectedLogic.categories.find(c => c.id === sess.categoryId);
                   return (
                     <div key={sess.id} className={styles.sessionCard}>
@@ -923,7 +877,7 @@ export function TodayStudy() {
           date={todayDateStr}
           initialSession={editTarget}
           categories={selectedLogic.categories}
-          allSessions={todayRecord?.sessions ?? []}
+          allSessions={sessions}
           timerStatus={timerStatus}
           onSave={handleSessionSave}
           onClose={() => { setSessionModalMode(null); setEditTarget(null); }}
@@ -981,7 +935,7 @@ export function TodayStudy() {
           confirmVariant="primary"
           onCancel={() => { resumeTimer(); blocker.reset(); }}
           onConfirm={() => {
-            handleStopRef.current?.(true);
+            void handleStopRef.current?.(true);
             blocker.proceed();
           }}
         />

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { weeklyReviewRepo } from '@/lib/storage';
+import { useWeeklyReview } from '@/hooks/query/useWeeklyReviews';
 import { getLocalDateString } from '@/lib/calculator/timer';
 
 /** 이번 주(로컬 기준) 일요일 날짜 문자열 */
@@ -13,25 +12,12 @@ function getThisWeekSunday(): string {
 /**
  * 일요일이면서 이번 주 회고가 아직 저장되지 않은 경우 true.
  * 내비게이션의 "주간 회고" 항목에 작성 유도 배지를 노출하는 데 사용한다.
+ * (React Query가 창 포커스 시 자동 재조회 → 회고 저장 후 배지 자동 해제)
  */
 export function useWeeklyReviewBadge(): boolean {
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    const evaluate = () => {
-      const isSunday = new Date().getDay() === 0;
-      if (!isSunday) {
-        setShow(false);
-        return;
-      }
-      const existing = weeklyReviewRepo.getByWeekStart(getThisWeekSunday());
-      setShow(!existing);
-    };
-    evaluate();
-    // 회고 저장 후 돌아왔을 때 배지가 사라지도록 포커스 시 재평가
-    window.addEventListener('focus', evaluate);
-    return () => window.removeEventListener('focus', evaluate);
-  }, []);
-
-  return show;
+  const isSunday = new Date().getDay() === 0;
+  // 일요일이 아니면 빈 문자열 → 쿼리 비활성(enabled:false)
+  const { data } = useWeeklyReview(isSunday ? getThisWeekSunday() : '');
+  // 일요일이고 이번 주 회고가 없으면(null) 배지 노출
+  return isSunday && data === null;
 }

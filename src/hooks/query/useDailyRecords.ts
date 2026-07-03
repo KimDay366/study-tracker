@@ -1,5 +1,5 @@
 import {
-  useQuery, useMutation, useQueryClient, keepPreviousData,
+  useQuery, useQueries, useMutation, useQueryClient, keepPreviousData,
 } from '@tanstack/react-query';
 import {
   fetchMonthlyRecords, fetchDailyRecord,
@@ -8,6 +8,20 @@ import {
 } from '@/api/daily-records';
 
 export const DAILY_RECORDS_KEY = ['daily-records'] as const;
+
+/**
+ * 여러 날짜(예: 주 7일)의 기록을 병렬 조회.
+ * queryKey를 useDailyRecord와 동일하게 써서 캐시를 공유(달력/타이머와 일관).
+ */
+export function useWeekRecords(dates: string[]) {
+  return useQueries({
+    queries: dates.map(date => ({
+      queryKey: [...DAILY_RECORDS_KEY, 'date', date],
+      queryFn: () => fetchDailyRecord(date),
+      enabled: !!date,
+    })),
+  });
+}
 
 /** 월간 기록 조회. queryKey에 year/month 포함 → 월 전환 시 자동 재조회. 이전 달 데이터 유지로 깜빡임 방지. */
 export function useMonthlyRecords(year: number, month: number) {
