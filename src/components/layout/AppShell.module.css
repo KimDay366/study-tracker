@@ -1,0 +1,38 @@
+.appShell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-bg-base);
+}
+
+.mainArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mainContent {
+  flex: 1;
+  padding: 30px;
+  padding-bottom: calc(var(--bottom-nav-height) + 30px);
+}
+
+/* PC: 사이드바 표시 */
+@media (min-width: 1200px) {
+  .mainContent {
+    padding-bottom: 30px;
+  }
+}
+
+/* Private 모드 전역 경고 배너 */
+.privateBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: #fffbe6;
+  border-bottom: 1px solid #ffe58f;
+  color: #7c5800;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}

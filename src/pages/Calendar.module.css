@@ -1,0 +1,194 @@
+/* =============================================
+   달력 페이지 레이아웃
+============================================= */
+
+/* 모바일 기본 */
+.mobileCalendar {
+  padding-bottom: var(--space-8);
+}
+
+.tabletLayout {
+  display: none;
+}
+
+/* 태블릿 768px+ */
+@media (min-width: 768px) {
+  .mobileCalendar {
+    display: none;
+  }
+
+  .tabletLayout {
+    display: grid;
+    grid-template-columns: 60% 40%;
+    align-items: start;
+    min-height: calc(100vh - 56px);
+  }
+
+  .calendarCol {
+    padding: var(--space-6);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .detailCol {
+    padding: var(--space-6);
+    position: sticky;
+    top: 56px;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+}
+
+/* PC 1200px+ */
+@media (min-width: 1200px) {
+  .tabletLayout {
+    grid-template-columns: 63% 37%;
+    min-height: unset;
+  }
+
+  .calendarCol {
+    padding: 0 var(--space-6) 0 0;
+  }
+
+  .detailCol {
+    top: 0;
+    max-height: calc(100vh - 64px - var(--space-8));
+  }
+}
+
+/* 바텀시트 오버레이 (모바일) */
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  z-index: 40;
+}
+
+/* 바텀시트 */
+.bottomSheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 50;
+  box-shadow: var(--shadow-lg);
+  /* 애니메이션은 data-state로 제어 */
+  animation: slideUp var(--duration-slow) var(--ease-standard);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sheetHandle {
+  width: 36px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  margin: var(--space-3) auto var(--space-4);
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sheetClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-xl);
+  color: var(--color-text-secondary);
+  padding: var(--space-1);
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+}
+
+.sheetClose:hover {
+  background: var(--color-bg-subtle);
+}
+
+.sheetBody {
+  padding: var(--space-4);
+}
+
+/* ===== 로딩 / 에러 배너 ===== */
+.statusBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.statusError {
+  color: var(--color-danger, #d92d20);
+}
+.retryButton {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.retryButton:hover {
+  background: var(--color-bg-surface);
+}
+
+/* ===== 이번 달 달성 진행바 ===== */
+.monthProgress {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-4);
+}
+.monthProgressLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+.monthProgressSub {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-regular);
+}
+.monthProgressBar {
+  height: 8px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.monthProgressFill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-standard);
+  min-width: 0;
+}

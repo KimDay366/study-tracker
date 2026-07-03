@@ -1,0 +1,720 @@
+/* =============================================
+   SCR-01 오늘의 공부
+   모바일 우선 → 태블릿(768px+) → PC(1200px+)
+============================================= */
+
+/* ---- 루틴 배너 ---- */
+.routineBanner {
+  background: var(--color-secondary-light);
+  border-left: 4px solid var(--color-secondary);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+.routineBanner strong { font-weight: var(--font-semibold); }
+.bannerClose {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+  padding: var(--space-1);
+  line-height: 1;
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- 모바일 헤더 (로직 셀렉터 + 날짜) ---- */
+.mobileHeader {
+  background: var(--color-bg-surface);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+  /* mainContent의 padding을 무효화하기 위해 음수 마진으로 꽉 채움 */
+  margin: -30px -30px 0 -30px;
+}
+
+/* ---- 태블릿/PC 헤더 ---- */
+.pageHeader {
+  display: none;
+}
+
+/* ---- 로직 셀렉터 ---- */
+.logicSelectorWrap {
+  position: relative;
+}
+
+.logicSelector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-bg-subtle);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  font-family: var(--font-family-base);
+  min-height: 44px;
+  transition: border-color var(--duration-base) var(--ease-standard),
+              background var(--duration-base) var(--ease-standard);
+}
+.logicSelector:hover {
+  border-color: var(--color-primary);
+  background: var(--color-bg-surface);
+}
+.logicName {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+.logicArrow { font-size: var(--text-xs); color: var(--color-text-secondary); }
+
+/* 드롭다운 */
+.logicDropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  min-width: 180px;
+  background: var(--color-bg-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.logicDropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  min-height: 44px;
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.logicDropdownItem:hover {
+  background: var(--color-bg-subtle);
+}
+
+.logicDropdownItemActive {
+  color: var(--color-primary);
+  font-weight: var(--font-semibold);
+}
+
+.logicDropdownCheck {
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+}
+
+/* ---- 온보딩 (로직 없음) ---- */
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16) var(--space-6);
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.onboardingIcon {
+  font-size: 56px;
+  opacity: 0.35;
+}
+
+.onboardingMsg {
+  font-size: var(--text-md);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+}
+
+.onboardingBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  text-decoration: none;
+  border-radius: var(--radius-xl);
+  padding: var(--space-3) var(--space-8);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  min-height: 48px;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.onboardingBtn:hover {
+  background: var(--color-primary-dark);
+}
+
+/* ---- 날짜 표시 ---- */
+.todayDate {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  text-align: right;
+  line-height: var(--leading-tight);
+}
+.todayDateDay {
+  color: var(--color-primary);
+  font-weight: var(--font-semibold);
+}
+
+/* =============================================
+   메인 콘텐츠 (모바일 1열 기본)
+============================================= */
+.mainContent {
+  margin-top: var(--space-4);
+  /* 모바일: 타이머 바(약 130px) + 하단 내비(48px) + 여유 */
+  padding-bottom: 200px;
+}
+
+/* ---- 달성률 요약 ---- */
+.achievementSummary {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.achievementLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+.achievementPct {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-primary-dark);
+}
+.achievementHearts {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.rainbowStar {
+  font-size: 28px;
+  background: linear-gradient(90deg, #FF6B6B, #FFBE0B, #51CF66, #339AF0, #CC5DE8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.specialBadge {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+}
+
+/* ---- 카테고리 목록 ---- */
+.categorySection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.sectionTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+/* ---- 카테고리 카드 ---- */
+.catCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-md);
+  border: 2px solid transparent;
+  border-left-width: 4px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-family-base);
+  transition: box-shadow var(--duration-base) var(--ease-standard),
+              transform var(--duration-base) var(--ease-standard);
+  min-height: 80px;
+  width: 100%;
+}
+.catCard:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+/* 카드 상단 행 */
+.catCardTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.catLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+.catDot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.catName {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.runningBadge {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* 목표·오늘 시간 */
+.catTimeInfo {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+/* 하트 행 */
+.catHeartsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.catPct {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  margin-left: var(--space-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* 초과달성 */
+.overachieveBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  margin-top: var(--space-1);
+}
+
+/* =============================================
+   타이머 — 모바일 하단 고정 바
+============================================= */
+.timerBar {
+  position: fixed;
+  /* 하단 내비(--bottom-nav-height=48px) 위 */
+  bottom: var(--bottom-nav-height);
+  left: 0;
+  right: 0;
+  background: var(--color-bg-surface);
+  border-top: 1.5px solid var(--color-border);
+  box-shadow: 0 -4px 16px rgba(30, 58, 58, 0.10);
+  padding: var(--space-3) var(--space-4);
+  z-index: 20;
+}
+.timerCategoryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.timerCatDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.timerCatName {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-medium);
+}
+.timerElapsed {
+  font-family: var(--font-family-timer);
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 4px;
+  color: var(--color-text-primary);
+  line-height: 1;
+  margin-bottom: var(--space-1);
+}
+.timerBtns {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.timerIdleMsg {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-3);
+}
+/* 공통 타이머 버튼 */
+.timerBtn {
+  flex: 1;
+  padding: var(--space-3);
+  border-radius: var(--radius-xl);
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  border: none;
+  cursor: pointer;
+  min-height: 48px;
+  transition: background var(--duration-base) var(--ease-standard),
+              opacity var(--duration-fast) var(--ease-standard);
+}
+.timerBtnStart {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: var(--shadow-glow);
+}
+.timerBtnStart:hover { background: var(--color-primary-dark); }
+.timerBtnStart:disabled {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.timerBtnPause {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+}
+.timerBtnPause:hover { background: var(--color-border); }
+.timerBtnStop {
+  background: transparent;
+  color: var(--color-danger);
+  border: 2px solid var(--color-danger);
+}
+.timerBtnStop:hover { background: var(--color-danger-light); }
+
+/* =============================================
+   태블릿(768px+) — 좌 타이머 패널 / 우 카테고리 2열
+============================================= */
+@media (min-width: 768px) {
+  .mobileHeader { display: none; }
+
+  .pageHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-6);
+  }
+  .pageHeaderLeft {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  .pageTitle {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+  }
+
+  .mainContent {
+    margin-top: 0;
+    padding-bottom: 0;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: auto auto 1fr;
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  /* 달성률: 상단 전폭 */
+  .achievementSummary {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: var(--space-6);
+    margin-bottom: 0;
+  }
+
+  /* 타이머 패널: 왼쪽 */
+  .timerPanel {
+    grid-column: 1;
+    grid-row: 2 / 4;
+    background: var(--color-bg-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md), var(--shadow-glow);
+    padding: var(--space-8) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+
+  /* 카테고리: 오른쪽 2열 */
+  .categorySection {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    align-content: start;
+  }
+  .sectionTitle { grid-column: 1 / -1; }
+
+  /* 모바일 타이머 바 숨김 */
+  .timerBar { display: none; }
+}
+
+/* =============================================
+   PC(1200px+) — 타이머 폭 확장
+============================================= */
+@media (min-width: 1200px) {
+  .mainContent {
+    grid-template-columns: 340px 1fr;
+    gap: var(--space-8);
+  }
+  .timerPanel {
+    padding: var(--space-8);
+    top: 30px;
+  }
+  .pageTitle { font-size: var(--text-2xl); }
+}
+
+/* =============================================
+   와이드(1400px+) — 카테고리 한 줄 3개, 카드 최대 폭 400px
+============================================= */
+@media (min-width: 1400px) {
+  .categorySection {
+    grid-template-columns: repeat(3, minmax(0, 400px));
+    justify-content: start;
+  }
+}
+
+/* ---- 데스크탑 타이머 패널 내부 요소 ---- */
+.timerPanelCategoryLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: center;
+  margin-bottom: var(--space-3);
+}
+.timerPanelCatName {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-medium);
+}
+.timerPanelElapsed {
+  font-family: var(--font-family-timer);
+  font-size: var(--text-4xl);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 4px;
+  line-height: 1;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+.timerPanelIdleMsg {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  padding: var(--space-4) 0;
+}
+.timerPanelBtns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-4);
+}
+.timerPanelBtn {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-xl);
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  min-height: 48px;
+  transition: background var(--duration-base) var(--ease-standard),
+              opacity var(--duration-fast) var(--ease-standard);
+}
+.timerPanelBtnStart {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: none;
+  box-shadow: var(--shadow-glow);
+}
+.timerPanelBtnStart:hover { background: var(--color-primary-dark); }
+.timerPanelBtnStart:disabled {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.timerPanelBtnPause {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+}
+.timerPanelBtnPause:hover { background: var(--color-border); }
+.timerPanelBtnStop {
+  background: transparent;
+  color: var(--color-danger);
+  border: 2px solid var(--color-danger);
+}
+.timerPanelBtnStop:hover { background: var(--color-danger-light); }
+
+/* ===== 오늘 세션 내역 ===== */
+.sessionHistory {
+  margin-top: var(--space-5);
+}
+.sessionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.sessionCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3) var(--space-4);
+  min-height: 56px;
+  flex-wrap: wrap;
+}
+.sessionCardLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+.sessionDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sessionCatName {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+}
+.manualBadge {
+  font-size: 10px;
+  background: var(--color-accent);
+  color: var(--color-text-on-primary);
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.sessionCardCenter {
+  flex: 1;
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  font-size: var(--text-sm);
+  font-family: var(--font-family-mono);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+.sessionTime { flex: 1; }
+.sessionDur {
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+.sessionCardActions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+.sessionActionBtn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+.sessionActionBtn:hover {
+  background: var(--color-bg-subtle);
+}
+.sessionDeleteBtn:hover {
+  background: var(--color-danger-light);
+}
+.sessionEmpty {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  padding: var(--space-4);
+  text-align: center;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+}
+.addSessionBtn {
+  width: 100%;
+  padding: var(--space-3);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+.addSessionBtn:hover {
+  background: var(--color-bg-subtle);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}

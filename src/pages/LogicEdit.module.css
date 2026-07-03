@@ -1,0 +1,576 @@
+/* =============================================
+   SCR-03 로직 편집 (AppShell 미적용 집중 화면)
+   모바일 우선 → 태블릿(768px+) → PC(1200px+)
+============================================= */
+
+.editPage {
+  min-height: 100vh;
+  background: var(--color-bg-base);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 80px;
+}
+
+/* ---- 앱바 ---- */
+.appBar {
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+  min-height: 56px;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-xl);
+  color: var(--color-text-secondary);
+  padding: var(--space-1);
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.backBtn:hover {
+  color: var(--color-text-primary);
+}
+
+.appBarTitle {
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.saveBtn {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: var(--space-2) var(--space-5);
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  min-height: 40px;
+  min-width: 64px;
+  transition: background var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.saveBtn:disabled {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* ---- 폼 섹션 ---- */
+.formSection {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 800px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.formLabel {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+
+.formHint {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+/* ---- 입력 필드 ---- */
+.inputField {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
+  font-family: var(--font-family-base);
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+  min-height: 44px;
+  outline: none;
+  width: 100%;
+}
+
+.inputField:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.inputField.inputError {
+  border-color: var(--color-danger);
+}
+
+.errorMsg {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+}
+
+/* ---- 방향 토글 ---- */
+.toggleGroup {
+  display: flex;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  width: 100%;
+}
+
+.toggleOpt {
+  flex: 1;
+  padding: var(--space-3);
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  transition: all var(--duration-fast) var(--ease-standard);
+  min-height: 44px;
+}
+
+.toggleOpt.toggleActive {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-weight: var(--font-semibold);
+}
+
+/* ---- 전체 목표 표시 (방향①) ---- */
+.totalDisplay {
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.totalDisplayLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.totalDisplayValue {
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+}
+
+/* ---- 전체 목표 입력 (방향②) ---- */
+.totalTimeInput {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.timeInputGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.timeInput {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-base);
+  font-family: var(--font-family-mono);
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  width: 64px;
+  text-align: center;
+  outline: none;
+  min-height: 44px;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.timeInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.timeUnit {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.timeCaption {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  width: 100%;
+}
+
+/* ---- 카테고리 목록 ---- */
+.catList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ---- 카테고리 행 ---- */
+.catRow {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.catRowTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.colorBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.colorBtn:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+.catNameInput {
+  flex: 1;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-family: var(--font-family-base);
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  outline: none;
+  min-height: 40px;
+  min-width: 0;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.catNameInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.catNameInput.inputError {
+  border-color: var(--color-danger);
+}
+
+.deleteCatBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-disabled);
+  font-size: var(--text-md);
+  padding: var(--space-1);
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast) var(--ease-standard),
+              background var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+}
+
+.deleteCatBtn:hover:not(:disabled) {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+.deleteCatBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+/* ---- 방향① 시간 입력 ---- */
+.catTimeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ---- 방향① 비중 표시 ---- */
+.proportionRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.proportionPct {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-secondary);
+  min-width: 36px;
+}
+
+.proportionBar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.proportionFill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--duration-base) var(--ease-standard);
+}
+
+/* ---- 방향② 슬라이더 ---- */
+.catSliderRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.catSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: var(--radius-full);
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.catSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+  border: 2px solid var(--color-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.catSlider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+  border: 2px solid var(--color-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.catPctInput {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  font-family: var(--font-family-mono);
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  width: 56px;
+  text-align: center;
+  outline: none;
+  min-height: 36px;
+  flex-shrink: 0;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.catPctInput:focus {
+  border-color: var(--color-primary);
+}
+
+.catMinutesLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---- 방향② 가로 누적 막대 ---- */
+.stackedBar {
+  height: 24px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  margin-top: var(--space-2);
+  background: color-mix(in srgb, var(--color-danger) 20%, var(--color-bg-subtle));
+}
+
+.stackedBarSegment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: width var(--duration-base) var(--ease-standard);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  color: var(--color-bg-surface);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.stackedBarUnallocated {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--color-danger);
+  transition: width var(--duration-base) var(--ease-standard);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  color: var(--color-bg-surface);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.stackedBarMeta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.pctSumWarn {
+  color: var(--color-danger);
+  font-weight: var(--font-semibold);
+}
+
+/* ---- 카테고리 추가 버튼 ---- */
+.addCatBtn {
+  background: transparent;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition: border-color var(--duration-base) var(--ease-standard),
+              color var(--duration-base) var(--ease-standard),
+              background var(--duration-base) var(--ease-standard);
+}
+
+.addCatBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.addCatBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* ---- 색상 팔레트 모달 ---- */
+.colorPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+
+.colorPaletteChip {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  border: 3px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+  justify-self: center;
+}
+
+.colorPaletteChip:hover {
+  transform: scale(1.1);
+}
+
+.colorPaletteChipSelected {
+  border-color: var(--color-primary);
+}
+
+.colorPaletteCheck {
+  color: var(--color-bg-surface);
+  font-size: 18px;
+  font-weight: var(--font-bold);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  line-height: 1;
+}
+
+/* ---- PC(1200px+) 레이아웃 ---- */
+@media (min-width: 1200px) {
+  .formSection {
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-8);
+    padding: var(--space-8);
+    align-items: start;
+  }
+
+  .leftCol {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .rightCol {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+}

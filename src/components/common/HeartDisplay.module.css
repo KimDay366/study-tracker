@@ -1,0 +1,34 @@
+.container {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+
+.heart {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.heartFilled {
+  /* 색상은 인라인 style로 전달 */
+}
+
+.heartEmpty {
+  color: var(--color-border);
+}
+
+.heartHalf {
+  /* clip-path로 반 채움 */
+  clip-path: inset(0 50% 0 0);
+}
+
+.rainbow {
+  background: linear-gradient(90deg, #FF6B6B, #FFBE0B, #51CF66, #339AF0, #CC5DE8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
