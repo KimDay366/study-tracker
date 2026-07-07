@@ -35,9 +35,9 @@ function makeQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-function renderLogin() {
+function renderLogin(search = '') {
   const router = createMemoryRouter([{ path: '/login', element: <Login /> }], {
-    initialEntries: ['/login'],
+    initialEntries: [`/login${search}`],
   });
   render(
     <QueryClientProvider client={makeQueryClient()}>
@@ -152,6 +152,102 @@ describe('로그인 — AUTH_EMAIL_NOT_VERIFIED', () => {
     await waitFor(() => {
       expect(screen.getByText(/재발송했어요/)).toBeDefined();
     });
+  });
+});
+
+// ── 로그인 — 보안 강화 응답 규격 error code 분기 ───────────────────
+describe('로그인 — 보안 강화 응답 error code별 안내 문구', () => {
+  async function submitLogin(email: string, password: string) {
+    renderLogin();
+    fireEvent.change(screen.getByLabelText('이메일'), { target: { value: email } });
+    fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: password } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+    });
+  }
+
+  it('AUTH_INVALID_CREDENTIALS → 계정 존재 여부를 티내지 않는 공통 문구, 재발송 버튼 없음', async () => {
+    mockLogin.mockRejectedValue({
+      response: { data: { code: 'AUTH_INVALID_CREDENTIALS', message: '자격 증명이 올바르지 않습니다.' } },
+    });
+
+    await submitLogin('nobody@test.com', 'wrongpass');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('이메일 또는 비밀번호가 올바르지 않아요');
+    expect(screen.queryByRole('button', { name: '인증 메일 재발송' })).toBeNull();
+  });
+
+  it('AUTH_ACCOUNT_SUSPENDED → 정지 계정 안내, 재발송 버튼 없음', async () => {
+    mockLogin.mockRejectedValue({
+      response: { data: { code: 'AUTH_ACCOUNT_SUSPENDED' } },
+    });
+
+    await submitLogin('suspended@test.com', 'Pass123!');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('정지된 계정');
+    expect(screen.queryByRole('button', { name: '인증 메일 재발송' })).toBeNull();
+  });
+
+  it('AUTH_ACCOUNT_DELETED → 탈퇴 계정 안내, 재발송 버튼 없음', async () => {
+    mockLogin.mockRejectedValue({
+      response: { data: { code: 'AUTH_ACCOUNT_DELETED' } },
+    });
+
+    await submitLogin('deleted@test.com', 'Pass123!');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('탈퇴 처리된 계정');
+    expect(screen.queryByRole('button', { name: '인증 메일 재발송' })).toBeNull();
+  });
+
+  it('AUTH_EMAIL_NOT_VERIFIED만 재발송 버튼을 노출한다 (새 문구 반영)', async () => {
+    mockLogin.mockRejectedValue({
+      response: { data: { code: 'AUTH_EMAIL_NOT_VERIFIED' } },
+    });
+
+    await submitLogin('unverified2@test.com', 'Pass123!');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('이메일 인증이 완료되지 않았어요. 메일함을 확인해 주세요.');
+    expect(screen.getByRole('button', { name: '인증 메일 재발송' })).toBeDefined();
+  });
+
+  it('AUTH_RATE_LIMITED → 요청 과다 안내 문구, 재발송 버튼 없음', async () => {
+    mockLogin.mockRejectedValue({
+      response: { data: { code: 'AUTH_RATE_LIMITED', message: 'Too many requests' } },
+    });
+
+    await submitLogin('anyone@test.com', 'Pass123!');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('요청이 너무 많아요');
+    expect(screen.queryByRole('button', { name: '인증 메일 재발송' })).toBeNull();
+  });
+});
+
+// ── 구글 로그인 콜백 실패 — ?error 쿼리파라미터 분기 ──────────────────
+describe('로그인 — 구글 OAuth 콜백 실패 (?error 쿼리파라미터)', () => {
+  it('error=google_unverified → 이메일 미인증 계정 안내 메시지가 표시된다', () => {
+    renderLogin('?error=google_unverified');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('이미 이메일로 가입된 계정');
+    expect(screen.getByRole('alert')).toHaveTextContent('이메일 인증을 먼저 완료');
+  });
+
+  it('error=google → 기존 일반 실패 메시지가 표시된다', () => {
+    renderLogin('?error=google');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('구글 로그인에 실패했어요');
+  });
+
+  it('error 쿼리파라미터가 없으면 에러 메시지가 표시되지 않는다', () => {
+    renderLogin();
+
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('error=google_unverified 케이스에서는 재발송 버튼이 표시되지 않는다 (이메일 정보 없음)', () => {
+    renderLogin('?error=google_unverified');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('이미 이메일로 가입된 계정');
+    expect(screen.queryByRole('button', { name: '인증 메일 재발송' })).toBeNull();
   });
 });
 

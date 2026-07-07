@@ -20,13 +20,9 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-function roundToFive(m: number): number {
-  return Math.round(m / 5) * 5 % 60;
-}
-
 function toHM(ts: number): { h: number; m: number } {
   const d = new Date(ts);
-  return { h: d.getHours(), m: roundToFive(d.getMinutes()) };
+  return { h: d.getHours(), m: d.getMinutes() };
 }
 
 function toTs(date: string, h: number, m: number): number {
@@ -48,7 +44,7 @@ export function SessionModal({
   const now = new Date();
   const defaultStart = initialSession
     ? toHM(initialSession.sessionStartTimestamp)
-    : { h: now.getHours(), m: roundToFive(now.getMinutes()) };
+    : { h: now.getHours(), m: now.getMinutes() };
   const defaultEnd = initialSession
     ? toHM(initialSession.sessionEndTimestamp)
     : (() => {
@@ -60,9 +56,9 @@ export function SessionModal({
     initialSession?.categoryId ?? categories[0]?.id ?? ''
   );
   const [startH, setStartH] = useState(defaultStart.h);
-  const [startM, setStartM] = useState(roundToFive(defaultStart.m));
+  const [startM, setStartM] = useState(defaultStart.m);
   const [endH, setEndH] = useState(Math.min(defaultEnd.h, 23));
-  const [endM, setEndM] = useState(roundToFive(defaultEnd.m % 60));
+  const [endM, setEndM] = useState(defaultEnd.m % 60);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [timeError, setTimeError] = useState(false);
@@ -136,7 +132,7 @@ export function SessionModal({
   };
 
   return (
-    <Modal title={mode === 'edit' ? '세션 수정' : '세션 추가'} onClose={onClose}>
+    <Modal title={mode === 'edit' ? '기록 수정' : '기록 추가'} onClose={onClose}>
       {/* 카테고리 */}
       <div className={styles.formGroup}>
         <label className={styles.label}>카테고리</label>
@@ -186,14 +182,14 @@ export function SessionModal({
       {/* 경고: 1분 미만 */}
       {durationMinutes > 0 && durationMinutes < 1 && (
         <div className={styles.warnMsg}>
-          1분 미만 세션이에요. 저장해도 달성 시간에 반영되지 않아요.
+          1분 미만 기록이에요. 저장해도 달성 시간에 반영되지 않아요.
         </div>
       )}
 
       {/* 경고: 겹침 */}
       {overlapWarning && (
         <div className={styles.warnMsg}>
-          다른 세션과 시간이 겹쳐요. 그래도 저장할까요?
+          다른 기록과 시간이 겹쳐요. 그래도 저장할까요?
         </div>
       )}
 

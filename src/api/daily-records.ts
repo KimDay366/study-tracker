@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { apiClient } from './client';
 import type { DailyRecord, Session, LogicSnapshot, AchievementCache } from '@/types';
 
@@ -25,7 +24,11 @@ function mapServerRecord(res: DailyRecordResponse): DailyRecord {
   };
 }
 
-/** 세션 추가 요청 본문 (서버 SessionCreateSchema 대응). 첫 세션이면 logicId/logicSnapshot로 레코드 생성. */
+/**
+ * 세션 추가 요청 본문 (서버 SessionCreateSchema 대응).
+ * 다중 로직 대응(2026-07-07): logicId/logicSnapshot은 항상 필수 — 서버가 (date, logicId) 조합으로
+ * 로직 그룹(daily_records 행)을 upsert하므로, 매 요청마다 "이 세션이 어느 로직 소속인지"를 명시해야 한다.
+ */
 export interface SessionAddInput {
   id: string;
   categoryId: string;
@@ -33,8 +36,8 @@ export interface SessionAddInput {
   sessionEndTimestamp: number;
   durationMinutes: number;
   source: 'timer' | 'manual';
-  logicId?: string;
-  logicSnapshot?: LogicSnapshot;
+  logicId: string;
+  logicSnapshot: LogicSnapshot;
 }
 
 /** 세션 수정 요청 본문 (서버 SessionUpdateSchema 대응). */
@@ -55,15 +58,13 @@ export async function fetchMonthlyRecords(year: number, month: number): Promise<
   return data.map(mapServerRecord);
 }
 
-/** 단일 날짜 기록 조회 — 미존재(404)는 null로 정규화(기존 getByDate 동작 호환). */
-export async function fetchDailyRecord(date: string): Promise<DailyRecord | null> {
-  try {
-    const { data } = await apiClient.get<DailyRecordResponse>(`/daily-records/${date}`);
-    return mapServerRecord(data);
-  } catch (err) {
-    if (axios.isAxiosError(err) && err.response?.status === 404) return null;
-    throw err;
-  }
+/**
+ * 단일 날짜 기록 조회 — 다중 로직 대응(2026-07-07): 그 날짜의 로직 그룹 배열을 반환한다.
+ * 기록이 없으면 서버가 200 []을 주므로 그대로 빈 배열(기록 없음)로 취급 — 404 분기 없음.
+ */
+export async function fetchDailyRecord(date: string): Promise<DailyRecord[]> {
+  const { data } = await apiClient.get<DailyRecordResponse[]>(`/daily-records/${date}`);
+  return data.map(mapServerRecord);
 }
 
 export async function addSession(date: string, body: SessionAddInput): Promise<Session> {

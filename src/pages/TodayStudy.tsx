@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useBlocker } from 'react-router-dom';
 import type { Category, Session } from '@/types';
-import { useTimerStore, loadSessionDraft, clearSessionDraft } from '@/stores/timerStore';
-import type { SessionDraft } from '@/stores/timerStore';
+import {
+  useTimerStore, loadSessionDraft, clearSessionDraft,
+  saveFailedSession, flushFailedSessions,
+} from '@/stores/timerStore';
+import type { SessionDraft, FailedSessionEntry } from '@/stores/timerStore';
+import type { SessionAddInput } from '@/api/daily-records';
 import { useTodayStore } from '@/stores/todayStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -12,6 +16,7 @@ import { useSettings, usePatchSettings } from '@/hooks/query/useSettings';
 import { useRoutineQuery } from '@/hooks/query/useRoutine';
 import { formatElapsedTime, isSameLocalDate, getLocalMidnight, getLocalDateString } from '@/lib/calculator/timer';
 import { calcAchievementPercent } from '@/lib/calculator/achievement';
+import { buildLogicSnapshot } from '@/lib/logicSnapshot';
 import { HeartDisplay } from '@/components/common/HeartDisplay';
 import { SessionModal } from '@/components/common/SessionModal';
 import { Dialog } from '@/components/common/Dialog';
@@ -69,7 +74,8 @@ export function TodayStudy() {
   // 서버 데이터 훅
   const { data: logics = [] } = useLogics();
   const todayDateStr = getTodayDateString();
-  const { data: todayRecord = null } = useDailyRecord(todayDateStr);
+  // 다중 로직 대응: 오늘의 로직 그룹 배열(로직을 바꾸면 그룹이 늘어난다). 빈 배열 = 오늘 기록 없음.
+  const { data: todayRecords = [] } = useDailyRecord(todayDateStr);
   const { data: settingsData } = useSettings();
   const { data: routineData } = useRoutineQuery();
 
@@ -103,6 +109,12 @@ export function TodayStudy() {
 
   // 선택된 로직
   const selectedLogic = logics.find(l => l.id === selectedLogicId) ?? logics[0] ?? null;
+
+  // 현재 선택된 로직의 오늘 그룹 — 달성률·카테고리 카드는 이 그룹 스코프로만 계산한다(§8-1: 그룹별 계산, 합산 안 함).
+  // 다른 로직으로 전환한 뒤에도 그 로직의 과거 그룹은 todayRecords 안에 별도 원소로 그대로 남아있다.
+  const todayGroup = todayRecords.find(r => r.logicId === selectedLogic?.id) ?? null;
+  // 세션 겹침 검사는 로직과 무관하게 그날 전체 세션 기준이어야 한다(같은 시간에 두 로직을 동시에 할 수 없으므로).
+  const allTodaySessions = todayRecords.flatMap(r => r.sessions);
 
   // 초기화: 로직 미선택 시 첫 번째 로직 자동 선택
   useEffect(() => {
@@ -154,6 +166,22 @@ export function TodayStudy() {
   const addSessionMutationRef = useRef(addSessionMutation);
   addSessionMutationRef.current = addSessionMutation;
 
+  // 마운트 시: 이전에 저장 실패했던 세션(자정분리·수동정지 공통 localStorage 큐)이 있으면 1회 재시도.
+  // 각 항목은 실패 시점에 이미 완전한 요청 바디(logicSnapshot 포함)를 담고 있으므로
+  // 현재 selectedLogic 상태와 무관하게 그대로 재전송할 수 있다.
+  useEffect(() => {
+    void (async () => {
+      const { recovered } = await flushFailedSessions(
+        (date, body) => addSessionMutationRef.current.mutateAsync({ date, body }),
+      );
+      if (recovered > 0) {
+        showToastRef.current(`이전에 저장하지 못했던 기록 ${recovered}건을 복구했어요.`, 'success');
+      }
+    })();
+  // 마운트 1회만 실행
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // setInterval: 실행 중일 때만 tick + 자정 분리 감지
   useEffect(() => {
     if (timerStatus !== 'running') {
@@ -180,14 +208,7 @@ export function TodayStudy() {
       const prevDateStr = getLocalDateString(start);
       const todayStr = getLocalDateString(now);
 
-      const makeSnapshot = () => ({
-        name: logic.name,
-        totalTargetMinutes: logic.totalTargetMinutes,
-        categories: logic.categories.map(c => ({
-          id: c.id, name: c.name, colorVar: c.colorVar,
-          targetMinutes: c.targetMinutes, targetPercent: c.targetPercent,
-        })),
-      });
+      const makeSnapshot = () => buildLogicSnapshot(logic);
 
       // 전날 세션: start ~ 자정 직전. 저장 시간은 화면 표시와 동일하게 '일시정지 제외' 실제 공부시간으로 계산.
       // (전체 실제 경과 - 자정 이후 구간) → 자정 전에 일시정지가 끼어도 전날 기록이 부풀지 않는다.
@@ -204,41 +225,54 @@ export function TodayStudy() {
       });
 
       // 전날·오늘 세션을 비동기로 저장 (각각 useAddSession().mutateAsync 호출)
+      // 두 구간을 서로 독립된 try/catch로 감싸 하나가 실패해도 나머지 구간 저장을 계속 시도한다.
+      // (기존엔 하나가 throw하면 나머지 구간은 아예 시도조차 되지 않고 함께 유실됐음)
       void (async () => {
-        try {
-          if (prevDur >= 1) {
-            await addSessionMutationRef.current.mutateAsync({
-              date: prevDateStr,
-              body: {
-                id: generateId(),
-                categoryId: catId,
-                sessionStartTimestamp: start,
-                sessionEndTimestamp: midnight - 1,
-                durationMinutes: prevDur,
-                source: 'timer',
-                logicId: logic.id,
-                logicSnapshot: makeSnapshot(),
-              },
-            });
+        const failures: FailedSessionEntry[] = [];
+
+        if (prevDur >= 1) {
+          const prevBody: SessionAddInput = {
+            id: generateId(),
+            categoryId: catId,
+            sessionStartTimestamp: start,
+            sessionEndTimestamp: midnight - 1,
+            durationMinutes: prevDur,
+            source: 'timer',
+            logicId: logic.id,
+            logicSnapshot: makeSnapshot(),
+          };
+          try {
+            await addSessionMutationRef.current.mutateAsync({ date: prevDateStr, body: prevBody });
+          } catch {
+            failures.push({ localId: generateId(), date: prevDateStr, body: prevBody });
           }
-          if (todayDur >= 1) {
-            await addSessionMutationRef.current.mutateAsync({
-              date: todayStr,
-              body: {
-                id: generateId(),
-                categoryId: catId,
-                sessionStartTimestamp: midnight,
-                sessionEndTimestamp: now,
-                durationMinutes: todayDur,
-                source: 'timer',
-                logicId: logic.id,
-                logicSnapshot: makeSnapshot(),
-              },
-            });
+        }
+
+        if (todayDur >= 1) {
+          const todayBody: SessionAddInput = {
+            id: generateId(),
+            categoryId: catId,
+            sessionStartTimestamp: midnight,
+            sessionEndTimestamp: now,
+            durationMinutes: todayDur,
+            source: 'timer',
+            logicId: logic.id,
+            logicSnapshot: makeSnapshot(),
+          };
+          try {
+            await addSessionMutationRef.current.mutateAsync({ date: todayStr, body: todayBody });
+          } catch {
+            failures.push({ localId: generateId(), date: todayStr, body: todayBody });
           }
-          showToastRef.current('자정이 지나 세션이 자동으로 분리되었어요.', 'success');
-        } catch {
-          // 저장 실패 시 그냥 계속 (MAJ-03 처리와 독립)
+        }
+
+        if (failures.length > 0) {
+          // 저장 실패 시 무음 처리하지 않는다 — 실패한 구간은 로컬 큐에 보존해 다음 접속 때 복구를 시도하고,
+          // 정지 버튼 실패 시와 동일하게 사용자에게 실패를 알린다.
+          failures.forEach(saveFailedSession);
+          showToastRef.current('자정 분리 저장에 실패했어요. 나중에 다시 시도할게요.', 'danger');
+        } else {
+          showToastRef.current('자정이 지나 기록이 자동으로 분리되었어요.', 'success');
         }
       })();
     }, 1000);
@@ -305,32 +339,23 @@ export function TodayStudy() {
 
     // 1분 이상인 경우만 저장
     if (durationMinutes >= 1) {
+      const body: SessionAddInput = {
+        id: generateId(),
+        categoryId: timerCategoryId,
+        sessionStartTimestamp,
+        sessionEndTimestamp: now,
+        durationMinutes,
+        source: 'timer',
+        logicId: selectedLogic.id,
+        logicSnapshot: buildLogicSnapshot(selectedLogic),
+      };
       try {
-        await addSessionMutation.mutateAsync({
-          date: todayDateStr,
-          body: {
-            id: generateId(),
-            categoryId: timerCategoryId,
-            sessionStartTimestamp,
-            sessionEndTimestamp: now,
-            durationMinutes,
-            source: 'timer',
-            logicId: selectedLogic.id,
-            logicSnapshot: {
-              name: selectedLogic.name,
-              totalTargetMinutes: selectedLogic.totalTargetMinutes,
-              categories: selectedLogic.categories.map(c => ({
-                id: c.id,
-                name: c.name,
-                colorVar: c.colorVar,
-                targetMinutes: c.targetMinutes,
-                targetPercent: c.targetPercent,
-              })),
-            },
-          },
-        });
+        await addSessionMutation.mutateAsync({ date: todayDateStr, body });
         showToast(`${durationMinutes}분 기록 완료!`, 'success');
       } catch {
+        // 자정분리 경로와 동일하게, 저장 실패 시에도 데이터를 폐기하지 않고 로컬 큐에 보존해
+        // 다음 접속 때 자동 재시도되도록 한다(Minor-3: 경로 간 일관성 보강). 토스트는 기존 그대로 유지.
+        saveFailedSession({ localId: generateId(), date: todayDateStr, body });
         showToast('저장 중 오류가 발생했어요.', 'danger');
         stopTimer();
         setElapsedMs(0);
@@ -377,14 +402,7 @@ export function TodayStudy() {
 
     const prevDateStr = getLocalDateString(start);
 
-    const makeSnapshot = () => ({
-      name: logic.name,
-      totalTargetMinutes: logic.totalTargetMinutes,
-      categories: logic.categories.map(c => ({
-        id: c.id, name: c.name, colorVar: c.colorVar,
-        targetMinutes: c.targetMinutes, targetPercent: c.targetPercent,
-      })),
-    });
+    const makeSnapshot = () => buildLogicSnapshot(logic);
 
     // 전날 세션: start ~ pausedAt. 저장 시간은 '일시정지 제외' 실제 공부시간으로 계산.
     // (paused 상태이므로 getElapsedMs가 pausedAt 기준 누적 공부시간을 반환 = 벽시계 부풀림 방지)
@@ -398,23 +416,25 @@ export function TodayStudy() {
       status: 'running',
     });
 
+    const prevBody: SessionAddInput = {
+      id: generateId(),
+      categoryId: catId,
+      sessionStartTimestamp: start,
+      sessionEndTimestamp: pausedAt,
+      durationMinutes: prevDur,
+      source: 'timer',
+      logicId: logic.id,
+      logicSnapshot: makeSnapshot(),
+    };
+
     try {
-      await addSessionMutation.mutateAsync({
-        date: prevDateStr,
-        body: {
-          id: generateId(),
-          categoryId: catId,
-          sessionStartTimestamp: start,
-          sessionEndTimestamp: pausedAt,
-          durationMinutes: prevDur,
-          source: 'timer',
-          logicId: logic.id,
-          logicSnapshot: makeSnapshot(),
-        },
-      });
-      showToast('자정이 지나 세션이 자동으로 분리되었어요.', 'success');
+      await addSessionMutation.mutateAsync({ date: prevDateStr, body: prevBody });
+      showToast('자정이 지나 기록이 자동으로 분리되었어요.', 'success');
     } catch {
-      // 저장 실패 시 그냥 재개 (타이머는 이미 running으로 전환됨)
+      // 저장 실패 시 그냥 재개하되(타이머는 이미 running으로 전환됨), 데이터는 유실하지 않도록
+      // 로컬 큐에 보존해 다음 접속 때 복구를 시도하고 사용자에게도 실패를 알린다.
+      saveFailedSession({ localId: generateId(), date: prevDateStr, body: prevBody });
+      showToast('자정 분리 저장에 실패했어요. 나중에 다시 시도할게요.', 'danger');
     }
   }, [selectedLogic, resumeTimer, addSessionMutation, showToast]);
 
@@ -427,7 +447,7 @@ export function TodayStudy() {
       setSelectedCategoryId(catId);
       restoreFromDraft(pendingDraft);
     } else {
-      showToast('이전 세션의 카테고리를 찾을 수 없어요.', 'warning');
+      showToast('이전 기록의 카테고리를 찾을 수 없어요.', 'warning');
       clearSessionDraft();
     }
     setPendingDraft(null);
@@ -467,14 +487,7 @@ export function TodayStudy() {
             durationMinutes: session.durationMinutes,
             source: session.source,
             logicId: selectedLogic.id,
-            logicSnapshot: {
-              name: selectedLogic.name,
-              totalTargetMinutes: selectedLogic.totalTargetMinutes,
-              categories: selectedLogic.categories.map(c => ({
-                id: c.id, name: c.name, colorVar: c.colorVar,
-                targetMinutes: c.targetMinutes, targetPercent: c.targetPercent,
-              })),
-            },
+            logicSnapshot: buildLogicSnapshot(selectedLogic),
           },
         });
       }
@@ -485,7 +498,7 @@ export function TodayStudy() {
 
     setSessionModalMode(null);
     setEditTarget(null);
-    showToast('세션이 저장됐어요.', 'success');
+    showToast('기록이 저장됐어요.', 'success');
   }, [selectedLogic, todayDateStr, sessionModalMode, editTarget, addSessionMutation, updateSessionMutation, showToast]);
 
   // 세션 삭제 확인
@@ -499,20 +512,20 @@ export function TodayStudy() {
       return;
     }
     setDeleteTarget(null);
-    showToast('세션이 삭제됐어요.', 'success');
+    showToast('기록이 삭제됐어요.', 'success');
   }, [deleteTarget, todayDateStr, deleteSessionMutation, showToast]);
 
-  // 달성률 계산
-  const sessions = todayRecord?.sessions ?? [];
+  // 달성률 계산 — 현재 선택된 로직의 그룹(todayGroup) 스코프로만 계산한다(§8-1).
+  const sessions = todayGroup?.sessions ?? [];
   const totalAccumulatedMinutes = getTotalAccumulatedMinutes(sessions);
   const totalTarget = selectedLogic?.totalTargetMinutes ?? 0;
   const totalAchievementPct = totalTarget > 0
-    ? (todayRecord?.achievementCache?.totalAchievementPercent
+    ? (todayGroup?.achievementCache?.totalAchievementPercent
         ?? calcAchievementPercent(totalAccumulatedMinutes, totalTarget))
     : 0;
   const allCategoriesDone = selectedLogic
     ? selectedLogic.categories.every(cat => {
-        const pct = todayRecord?.achievementCache?.categoryAchievements
+        const pct = todayGroup?.achievementCache?.categoryAchievements
           .find(a => a.categoryId === cat.id)?.achievementPercent
           ?? calcAchievementPercent(getAccumulatedMinutes(sessions, cat.id), cat.targetMinutes);
         return pct >= 100;
@@ -522,6 +535,16 @@ export function TodayStudy() {
 
   const runningCategory = selectedLogic?.categories.find(c => c.id === timerCategoryId) ?? null;
   const elapsedLabel = formatElapsedTime(elapsedMs);
+  // 타이머 패널 상단 큰 카테고리명 — 타이머가 idle이면 방금 선택한 카테고리, 진행 중이면 실행 중인 카테고리.
+  const panelCategory = timerStatus === 'idle'
+    ? (selectedLogic?.categories.find(c => c.id === selectedCategoryId) ?? null)
+    : runningCategory;
+
+  // 수정 대상 세션이 실제로 속한 그룹 — categoryId 선택지는 그 그룹의 스냅샷 카테고리로 한정해야
+  // 서버 검증(§8-4: 다른 로직 카테고리로 변경 불가, 400 SESSION_CATEGORY_INVALID)에 걸리지 않는다.
+  const editTargetGroup = editTarget
+    ? (todayRecords.find(r => r.sessions.some(s => s.id === editTarget.id)) ?? null)
+    : null;
 
   // 타이머 버튼 렌더 (모바일/PC 공통 로직, 스타일만 다름)
   const renderTimerButtons = (variant: 'bar' | 'panel') => {
@@ -572,7 +595,8 @@ export function TodayStudy() {
     routine: routineData ?? null,
     logics,
     lastUsedLogicId: settingsData?.lastUsedLogicId ?? selectedLogicId,
-    hasExistingRecord: !!todayRecord,
+    // 오늘 어떤 로직으로든 이미 공부를 시작했으면(그룹이 하나라도 있으면) 루틴 배너를 띄우지 않는다.
+    hasExistingRecord: todayRecords.length > 0,
   });
   const bannerText = getRoutineBannerText(banner);
 
@@ -697,12 +721,19 @@ export function TodayStudy() {
         {/* ② 태블릿/PC 타이머 패널 */}
         {isTabletOrPC && (
           <div className={styles.timerPanel} aria-label="타이머">
+            {/* 카테고리를 선택하면(또는 진행 중이면) 상단에 이름을 크게 표시 */}
+            {panelCategory && (
+              <div className={styles.timerPanelCatNameBig}>{panelCategory.name}</div>
+            )}
             {timerStatus === 'idle' ? (
               <>
                 <div className={styles.timerPanelIdleMsg}>
                   {selectedCategoryId ? '시작 버튼을 눌러 공부를 시작하세요.' : '카테고리를 선택해 주세요.'}
                 </div>
                 <div className={styles.timerPanelElapsed}>00:00:00</div>
+                <div className={styles.timerPanelBtns}>
+                  {renderTimerButtons('panel')}
+                </div>
               </>
             ) : (
               <>
@@ -712,15 +743,18 @@ export function TodayStudy() {
                     style={{ background: `var(${runningCategory?.colorVar ?? '--color-primary'})` }}
                   />
                   <span className={styles.timerPanelCatName}>
-                    {runningCategory?.name} · {timerStatus === 'running' ? '실행중' : '일시정지'}
+                    {timerStatus === 'running' ? '실행중' : '일시정지'}
                   </span>
                 </div>
-                <div className={styles.timerPanelElapsed}>{elapsedLabel}</div>
+                {/* PC(1200px+)에서는 이 행이 가로 배치로 바뀌어 버튼이 시간표시 옆에 나란히 놓인다 */}
+                <div className={styles.timerPanelActiveRow}>
+                  <div className={styles.timerPanelElapsed}>{elapsedLabel}</div>
+                  <div className={styles.timerPanelBtns}>
+                    {renderTimerButtons('panel')}
+                  </div>
+                </div>
               </>
             )}
-            <div className={styles.timerPanelBtns}>
-              {renderTimerButtons('panel')}
-            </div>
           </div>
         )}
 
@@ -746,7 +780,7 @@ export function TodayStudy() {
               const isSelected = selectedCategoryId === cat.id;
               const isRunning = timerCategoryId === cat.id && timerStatus !== 'idle';
               const accumulatedMin = getAccumulatedMinutes(sessions, cat.id);
-              const catPct = todayRecord?.achievementCache?.categoryAchievements
+              const catPct = todayGroup?.achievementCache?.categoryAchievements
                 .find(a => a.categoryId === cat.id)?.achievementPercent
                 ?? calcAchievementPercent(accumulatedMin, cat.targetMinutes);
               const isOverachieve = catPct > 100;
@@ -812,51 +846,66 @@ export function TodayStudy() {
           )}
         </section>
 
-        {/* 오늘 세션 내역 */}
+        {/* 오늘 세션 내역 — 오늘의 모든 로직 그룹을 로직별로 나눠 표시(다중 로직 대응) */}
         {selectedLogic && (
-          <section className={styles.sessionHistory} aria-label="오늘 세션 내역">
-            <div className={styles.sectionTitle}>오늘 세션 내역</div>
-            {sessions.length === 0 ? (
-              <div className={styles.sessionEmpty}>오늘 아직 세션 기록이 없어요.</div>
+          <section className={styles.sessionHistory} aria-label="오늘 기록 내역">
+            <div className={styles.sessionHistoryTitle}>오늘 기록 내역</div>
+            {todayRecords.length === 0 ? (
+              <div className={styles.sessionEmpty}>오늘 아직 기록이 없어요.</div>
             ) : (
-              <div className={styles.sessionList}>
-                {sessions.map(sess => {
-                  const cat = selectedLogic.categories.find(c => c.id === sess.categoryId);
-                  return (
-                    <div key={sess.id} className={styles.sessionCard}>
-                      <div className={styles.sessionCardLeft}>
-                        <span
-                          className={styles.sessionDot}
-                          style={{ background: `var(${cat?.colorVar ?? '--color-primary'})` }}
-                        />
-                        <span className={styles.sessionCatName}>{cat?.name ?? '알 수 없음'}</span>
-                        {sess.source === 'manual' && (
-                          <span className={styles.manualBadge}>직접 추가</span>
-                        )}
-                      </div>
-                      <div className={styles.sessionCardCenter}>
-                        <span className={styles.sessionTime}>
-                          {formatTimestamp(sess.sessionStartTimestamp)} ~ {formatTimestamp(sess.sessionEndTimestamp)}
-                        </span>
-                        <span className={styles.sessionDur}>{sess.durationMinutes}분</span>
-                      </div>
-                      <div className={styles.sessionCardActions}>
-                        <button
-                          type="button"
-                          className={styles.sessionActionBtn}
-                          onClick={() => { setEditTarget(sess); setSessionModalMode('edit'); }}
-                          aria-label="세션 수정"
-                        >✏️</button>
-                        <button
-                          type="button"
-                          className={`${styles.sessionActionBtn} ${styles.sessionDeleteBtn}`}
-                          onClick={() => setDeleteTarget(sess)}
-                          aria-label="세션 삭제"
-                        >🗑️</button>
-                      </div>
+              // PC(1200px+)에서는 이 래퍼가 가로 방향 flex로 바뀌어 로직 그룹이 좌→우 컬럼으로 나열된다.
+              // 모바일/태블릿은 기본값(세로 스택) 그대로 유지.
+              <div className={styles.sessionGroupsWrap}>
+                {todayRecords.map(group => (
+                  <div key={`${group.logicId}-${group.createdAt}`} className={styles.sessionGroupBlock}>
+                    {/* 로직명은 그룹마다 항상(펼치기 없이) 표시 */}
+                    <div className={styles.sessionGroupHeader}>
+                      {group.logicSnapshot.name ?? '[삭제된 로직]'}
                     </div>
-                  );
-                })}
+                    <div className={styles.sessionList}>
+                      {group.sessions.map(sess => {
+                        // 버그 수정(L860 근본 원인): 현재 화면에 선택된 로직이 아니라,
+                        // 이 세션이 실제로 속한 그룹 자신의 스냅샷 카테고리에서 찾는다.
+                        // → 로직을 바꾼 뒤에도 과거 세션이 '알 수 없음'으로 표시되지 않는다.
+                        const cat = group.logicSnapshot.categories.find(c => c.id === sess.categoryId);
+                        return (
+                          <div key={sess.id} className={styles.sessionCard}>
+                            <div className={styles.sessionCardLeft}>
+                              <span
+                                className={styles.sessionDot}
+                                style={{ background: `var(${cat?.colorVar ?? '--color-primary'})` }}
+                              />
+                              <span className={styles.sessionCatName}>{cat?.name ?? '알 수 없음'}</span>
+                              {sess.source === 'manual' && (
+                                <span className={styles.manualBadge}>직접 추가</span>
+                              )}
+                            </div>
+                            <div className={styles.sessionCardCenter}>
+                              <span className={styles.sessionTime}>
+                                {formatTimestamp(sess.sessionStartTimestamp)} ~ {formatTimestamp(sess.sessionEndTimestamp)}
+                              </span>
+                              <span className={styles.sessionDur}>{sess.durationMinutes}분</span>
+                            </div>
+                            <div className={styles.sessionCardActions}>
+                              <button
+                                type="button"
+                                className={styles.sessionActionBtn}
+                                onClick={() => { setEditTarget(sess); setSessionModalMode('edit'); }}
+                                aria-label="기록 수정"
+                              >✏️</button>
+                              <button
+                                type="button"
+                                className={`${styles.sessionActionBtn} ${styles.sessionDeleteBtn}`}
+                                onClick={() => setDeleteTarget(sess)}
+                                aria-label="기록 삭제"
+                              >🗑️</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             <button
@@ -864,20 +913,24 @@ export function TodayStudy() {
               className={styles.addSessionBtn}
               onClick={() => { setEditTarget(null); setSessionModalMode('add'); }}
             >
-              + 세션 직접 추가
+              + 기록 직접 추가
             </button>
           </section>
         )}
       </div>
 
-      {/* 세션 수정/추가 모달 */}
+      {/* 세션 수정/추가 모달 — 수정은 세션이 속한 원래 그룹의 카테고리를, 추가는 현재 선택 로직의 카테고리를 사용 */}
       {sessionModalMode && selectedLogic && (
         <SessionModal
           mode={sessionModalMode}
           date={todayDateStr}
           initialSession={editTarget}
-          categories={selectedLogic.categories}
-          allSessions={sessions}
+          categories={
+            sessionModalMode === 'edit'
+              ? (editTargetGroup?.logicSnapshot.categories ?? selectedLogic.categories)
+              : selectedLogic.categories
+          }
+          allSessions={allTodaySessions}
           timerStatus={timerStatus}
           onSave={handleSessionSave}
           onClose={() => { setSessionModalMode(null); setEditTarget(null); }}
@@ -888,7 +941,7 @@ export function TodayStudy() {
       {deleteTarget && (
         <Dialog
           icon="🗑️"
-          title="이 세션을 삭제할까요?"
+          title="이 기록을 삭제할까요?"
           description="되돌릴 수 없어요."
           cancelLabel="취소"
           confirmLabel="삭제"
@@ -902,8 +955,8 @@ export function TodayStudy() {
       {pendingDraft && (
         <Dialog
           icon="⏱️"
-          title="이전에 진행 중이던 세션이 있어요."
-          description="이어서 기록할까요? '폐기'를 선택하면 이전 세션은 삭제돼요."
+          title="이전에 진행 중이던 기록이 있어요."
+          description="이어서 기록할까요? '폐기'를 선택하면 이전 기록은 삭제돼요."
           cancelLabel="폐기"
           confirmLabel="이어서 기록"
           confirmVariant="primary"
@@ -929,9 +982,9 @@ export function TodayStudy() {
       {blocker.state === 'blocked' && (
         <Dialog
           title="잠깐, 아직 공부 중이에요!"
-          description="지금 이동하면 현재 세션이 정지돼요. 1분 이상 기록됐다면 자동으로 저장돼요."
+          description="지금 이동하면 현재 기록이 정지돼요. 1분 이상 기록됐다면 자동으로 저장돼요."
           cancelLabel="머무르기"
-          confirmLabel="이동하고 정지"
+          confirmLabel="저장 후 이동"
           confirmVariant="primary"
           onCancel={() => { resumeTimer(); blocker.reset(); }}
           onConfirm={() => {

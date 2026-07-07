@@ -24,6 +24,11 @@
   }
 }
 
+/* 로직 편집 페이지(PC 전용): 자체 앱바/폼 레이아웃이 SideNav 옆에서 edge-to-edge로 보이도록 패딩 제거 */
+.mainContentFlush {
+  padding: 0;
+}
+
 /* Private 모드 전역 경고 배너 */
 .privateBanner {
   display: flex;

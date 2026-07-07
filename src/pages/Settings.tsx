@@ -4,6 +4,8 @@ import { useUIStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { logout } from '@/api/auth';
 import { useSettings } from '@/hooks/query/useSettings';
+import { useAddSession } from '@/hooks/query/useDailyRecords';
+import { flushFailedSessions } from '@/stores/timerStore';
 import { DATA_FORMAT_VERSION } from '@/types';
 import { QUOTES } from '@/lib/quotes';
 import { clearSessionAndCache } from '@/lib/storage/clearLocalData';
@@ -45,6 +47,7 @@ export function Settings() {
   const setUnauthenticated = useAuthStore(s => s.setUnauthenticated);
 
   const { data: serverSettings } = useSettings();
+  const addSessionMutation = useAddSession();
 
   const [resetStep, setResetStep] = useState<ResetStep>('idle');
   const [loggingOut, setLoggingOut] = useState(false);
@@ -73,6 +76,10 @@ export function Settings() {
   const handleLogout = useCallback(async () => {
     setLoggingOut(true);
     try {
+      // clearSessionAndCache가 st_ 접두사 스토리지를 통째로 비우는데, 여기엔 자정분리·수동정지
+      // 저장 실패로 쌓인 미복구 세션 큐(st_failed_sessions)도 포함된다. 지우기 전에 조용히
+      // 한 번 더 재전송을 시도해(best-effort) 유실 창을 최소화한다 — 실패해도 로그아웃은 그대로 진행.
+      await flushFailedSessions((date, body) => addSessionMutation.mutateAsync({ date, body }));
       await logout();
       clearSessionAndCache(queryClient);
       setUnauthenticated();
@@ -82,7 +89,7 @@ export function Settings() {
     } finally {
       setLoggingOut(false);
     }
-  }, [showToast, setUnauthenticated]);
+  }, [showToast, setUnauthenticated, addSessionMutation]);
 
   return (
     <div>

@@ -3,6 +3,7 @@ import {
   calcAchievementPercent,
   calcFilledHearts,
   calcHalfHeart,
+  capAveragePercent,
 } from '@/lib/calculator/achievement';
 
 describe('calcAchievementPercent', () => {
@@ -67,6 +68,34 @@ describe('calcFilledHearts', () => {
 
   it('73% → 하트 7개 (10% 이분법, 나머지 버림)', () => {
     expect(calcFilledHearts(73)).toBe(7);
+  });
+});
+
+describe('capAveragePercent — 여러 로직 종합(총/월 달성률)용 캡-평균', () => {
+  it('50/120/60 → 각 100%로 캡한 뒤 평균 = 70 (초과분이 미달분을 상쇄하지 않음)', () => {
+    expect(capAveragePercent([50, 120, 60])).toBe(70);
+  });
+
+  it('전부 100% 이상이면 100', () => {
+    expect(capAveragePercent([100, 150, 120])).toBe(100);
+  });
+
+  it('전부 미달이면 캡 없이 그대로 평균', () => {
+    expect(capAveragePercent([50, 30, 40])).toBe(40);
+  });
+
+  it('값 1개 — 캡만 적용', () => {
+    expect(capAveragePercent([150])).toBe(100);
+    expect(capAveragePercent([37.5])).toBe(37.5);
+  });
+
+  it('빈 배열 → 0', () => {
+    expect(capAveragePercent([])).toBe(0);
+  });
+
+  it('소수 1자리 반올림', () => {
+    // (50+100+100)/3 = 83.333... → 83.3
+    expect(capAveragePercent([50, 100, 120])).toBeCloseTo(83.3, 1);
   });
 });
 

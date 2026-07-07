@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { login, signup, resendVerification } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { clearSessionAndCache } from '@/lib/storage/clearLocalData';
+import { getApiErrorCode } from '@/lib/api/errorCode';
 import { queryClient } from '@/App';
 import styles from './Login.module.css';
 
@@ -13,11 +14,6 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:4000/api/v1'
 function handleGoogleLogin() {
   // 백엔드 리다이렉트 방식 — 구글 인증 후 백엔드 콜백이 홈으로 되돌려보냄
   window.location.href = `${API_BASE}/auth/google`;
-}
-
-function getApiErrorCode(e: unknown): string | undefined {
-  const err = e as { response?: { data?: { code?: string } } };
-  return err?.response?.data?.code;
 }
 
 function getApiErrorMessage(e: unknown): string {
@@ -55,10 +51,21 @@ export function Login() {
     setResendMessage('');
   }
 
-  // 구글 로그인 콜백 실패 시 백엔드가 ?error=google 로 되돌려보냄
+  // 리다이렉트 후 쿼리파라미터로 전달되는 에러 안내
+  // - error=google_unverified: 구글 로그인 시도한 계정이 이메일 미인증 로컬 계정이라 자동연동 거부
+  // - error=google: 그 외 구글 로그인 일반 실패
+  // - error=account_suspended / account_deleted: 정지/탈퇴 계정으로 판명되어 리다이렉트됨
+  //   (refresh 세션 복구 실패 시 AuthGuard가 보내거나, 구글 로그인 콜백에서 백엔드가 직접 보냄 — 파라미터 규격 동일)
   useEffect(() => {
-    if (searchParams.get('error') === 'google') {
+    const errorCode = searchParams.get('error');
+    if (errorCode === 'google_unverified') {
+      setGlobalError('이미 이메일로 가입된 계정이에요. 이메일 인증을 먼저 완료한 뒤 구글 로그인을 연결해 주세요.');
+    } else if (errorCode === 'google') {
       setGlobalError('구글 로그인에 실패했어요. 다시 시도해 주세요.');
+    } else if (errorCode === 'account_suspended') {
+      setGlobalError('정지된 계정이에요. 고객센터에 문의해 주세요.');
+    } else if (errorCode === 'account_deleted') {
+      setGlobalError('탈퇴 처리된 계정이에요.');
     }
   }, [searchParams]);
 
@@ -76,8 +83,17 @@ export function Login() {
     } catch (err) {
       const code = getApiErrorCode(err);
       if (code === 'AUTH_EMAIL_NOT_VERIFIED') {
-        setGlobalError('이메일 인증이 완료되지 않았어요. 인증 메일을 확인해 주세요.');
+        setGlobalError('이메일 인증이 완료되지 않았어요. 메일함을 확인해 주세요.');
         setUnverifiedEmail(loginEmail);
+      } else if (code === 'AUTH_INVALID_CREDENTIALS') {
+        // 계정 존재 여부를 노출하지 않도록 이메일 불일치/비밀번호 불일치를 구분하지 않는다(보안 의도).
+        setGlobalError('이메일 또는 비밀번호가 올바르지 않아요.');
+      } else if (code === 'AUTH_ACCOUNT_SUSPENDED') {
+        setGlobalError('정지된 계정이에요. 고객센터에 문의해 주세요.');
+      } else if (code === 'AUTH_ACCOUNT_DELETED') {
+        setGlobalError('탈퇴 처리된 계정이에요.');
+      } else if (code === 'AUTH_RATE_LIMITED') {
+        setGlobalError('요청이 너무 많아요. 잠시 후 다시 시도해 주세요.');
       } else {
         setGlobalError(getApiErrorMessage(err));
       }

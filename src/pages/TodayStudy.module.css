@@ -513,7 +513,8 @@
 ============================================= */
 @media (min-width: 1200px) {
   .mainContent {
-    grid-template-columns: 340px 1fr;
+    /* 타이머 패널 가로 500px */
+    grid-template-columns: 500px 1fr;
     gap: var(--space-8);
   }
   .timerPanel {
@@ -521,6 +522,23 @@
     top: 30px;
   }
   .pageTitle { font-size: var(--text-2xl); }
+
+  /* 상단 타이머(시간표시) 옆에 일시정지/정지(또는 재개/정지) 버튼을 가로로 배치.
+     .timerPanelActiveRow 안(진행 중 상태)에서만 적용 — idle의 단일 "시작" 버튼은 기존 전체폭 그대로 유지. */
+  .timerPanelActiveRow {
+    flex-direction: row;
+    justify-content: center;
+    gap: var(--space-4);
+  }
+  .timerPanelActiveRow .timerPanelBtns {
+    flex-direction: row;
+    width: auto;
+    margin-top: 0;
+  }
+  .timerPanelActiveRow .timerPanelBtn {
+    width: 150px;
+    padding-left: 20px;
+  }
 }
 
 /* =============================================
@@ -534,6 +552,14 @@
 }
 
 /* ---- 데스크탑 타이머 패널 내부 요소 ---- */
+/* 카테고리를 선택하면(또는 진행 중이면) 패널 상단에 이름을 크게 표시 */
+.timerPanelCatNameBig {
+  font-size: 28px;
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  text-align: center;
+  line-height: 1.2;
+}
 .timerPanelCategoryLabel {
   display: flex;
   align-items: center;
@@ -545,6 +571,14 @@
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
   font-weight: var(--font-medium);
+}
+/* 진행 중(일시정지/정지 등) 상태의 타이머 표시 + 버튼 묶음 — 기본은 세로 스택, PC(1200px+)에서 가로 배치로 전환 */
+.timerPanelActiveRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-1);
 }
 .timerPanelElapsed {
   font-family: var(--font-family-timer);
@@ -607,9 +641,38 @@
 }
 .timerPanelBtnStop:hover { background: var(--color-danger-light); }
 
-/* ===== 오늘 세션 내역 ===== */
+/* ===== 오늘 세션 내역 =====
+   위쪽(타이머·카테고리) 영역과 구분되도록 은은한 배경 음영 + 그림자를 준 카드 박스.
+   색상은 :root 팔레트만 사용 — 별도 다크 테마 토큰이 프로젝트에 아직 없어 라이트 팔레트 그대로 적용된다. */
 .sessionHistory {
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.sessionHistoryTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+}
+/* 로직 그룹 배열 — 모바일: 세로 1열(기본값). 태블릿(768px+)은 2열, PC(1200px+)는 400px 고정 3~4열(아래 미디어쿼리). */
+.sessionGroupsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+/* 로직 그룹 블록 (다중 로직 대응) — 로직명 헤더를 그룹마다 항상 표시 */
+.sessionGroupHeader {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  display: inline-flex;
+  padding: 3px var(--space-3);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-2);
 }
 .sessionList {
   display: flex;
@@ -717,4 +780,29 @@
   background: var(--color-bg-subtle);
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+/* =============================================
+   태블릿(768px+) — "오늘 기록 내역" 전체 폭 + 로직 그룹 2열
+   (그룹 내부 기록 항목은 .sessionList가 이미 세로 스택이라 별도 변경 불필요)
+============================================= */
+@media (min-width: 768px) {
+  .sessionHistory {
+    /* mainContent 그리드(300px/340px + 1fr, 2열)의 좁은 1열에 갇히지 않도록 전체 폭 사용 */
+    grid-column: 1 / -1;
+  }
+  .sessionGroupsWrap {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+  }
+}
+
+/* =============================================
+   PC(1200px+) — 로직 그룹 컬럼 고정 400px, 폭이 되는 만큼 3~4열 자동 wrap
+============================================= */
+@media (min-width: 1200px) {
+  .sessionGroupsWrap {
+    grid-template-columns: repeat(auto-fill, 400px);
+  }
 }

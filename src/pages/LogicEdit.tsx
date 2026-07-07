@@ -151,6 +151,17 @@ export function LogicEdit() {
     setCats(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
   }, []);
 
+  // 방향①(자동 합산) → ②(전체 시간 배분) 전환 시, ①에서 합산된 총 시간을 ②의 시작값으로 이어받는다.
+  // (전환 후에도 ②에서 자유롭게 조정 가능 — 여기선 초기값만 채워줌)
+  function handleDirectionChange(next: Direction) {
+    if (next === 2 && direction === 1 && dir1Total > 0) {
+      const { hours, minutes } = minutesToHoursAndMinutes(dir1Total);
+      setTotalHours(hours);
+      setTotalMins(minutes);
+    }
+    setDirection(next);
+  }
+
   function handleAddCat() {
     if (cats.length >= MAX_CATEGORIES) {
       showToast('카테고리는 최대 10개까지 추가할 수 있어요.', 'warning');
@@ -303,14 +314,14 @@ export function LogicEdit() {
             <div className={styles.toggleGroup} role="group" aria-label="목표 설정 방향">
               <button
                 className={`${styles.toggleOpt}${direction === 1 ? ` ${styles.toggleActive}` : ''}`}
-                onClick={() => setDirection(1)}
+                onClick={() => handleDirectionChange(1)}
                 aria-pressed={direction === 1}
               >
                 ① 카테고리 시간 합산
               </button>
               <button
                 className={`${styles.toggleOpt}${direction === 2 ? ` ${styles.toggleActive}` : ''}`}
-                onClick={() => setDirection(2)}
+                onClick={() => handleDirectionChange(2)}
                 aria-pressed={direction === 2}
               >
                 ② 전체 시간 배분
@@ -326,6 +337,26 @@ export function LogicEdit() {
                   {dir1Total > 0 ? formatMinutes(dir1Total) : '—'}
                 </span>
               </div>
+              {/* 카테고리별 입력 시간을 전체 대비 비율로 보여주는 게이지 (방향②의 배분 현황과 동일한 시각 언어) */}
+              {dir1Total > 0 && (
+                <div className={styles.stackedBar} aria-label="카테고리 비율 현황">
+                  {cats.map((cat, i) => (
+                    dir1Percents[i] > 0 && (
+                      <div
+                        key={cat.id}
+                        className={styles.stackedBarSegment}
+                        style={{
+                          width: `${Math.min(dir1Percents[i], 100)}%`,
+                          background: `var(${cat.colorVar})`,
+                        }}
+                        title={cat.name || `카테고리 ${i + 1}`}
+                      >
+                        {dir1Percents[i] >= 8 ? (cat.name || `카테고리 ${i + 1}`) : ''}
+                      </div>
+                    )
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

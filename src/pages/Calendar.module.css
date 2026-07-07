@@ -56,11 +56,13 @@
 }
 
 /* 바텀시트 오버레이 (모바일) */
+/* z-index: BottomNav(z-index:100, layout/BottomNav.module.css)보다 위에 있어야
+   시트가 하단 탭바에 가려 잘리지 않는다. */
 .sheetOverlay {
   position: fixed;
   inset: 0;
   background: var(--color-overlay);
-  z-index: 40;
+  z-index: 101;
 }
 
 /* 바텀시트 */
@@ -71,9 +73,13 @@
   right: 0;
   background: var(--color-bg-surface);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  /* 모바일 브라우저의 동적 주소창으로 vh가 실제 보이는 영역보다 크게 계산되는 문제 보정.
+     dvh 미지원 브라우저는 위 vh 값으로 폴백된다. */
   max-height: 80vh;
-  overflow-y: auto;
-  z-index: 50;
+  max-height: 80dvh;
+  display: flex;
+  flex-direction: column;
+  z-index: 102;
   box-shadow: var(--shadow-lg);
   /* 애니메이션은 data-state로 제어 */
   animation: slideUp var(--duration-slow) var(--ease-standard);
@@ -94,6 +100,7 @@
   background: var(--color-border);
   border-radius: var(--radius-full);
   margin: var(--space-3) auto var(--space-4);
+  flex-shrink: 0;
 }
 
 .sheetHeader {
@@ -102,6 +109,7 @@
   justify-content: space-between;
   padding: 0 var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .sheetClose {
@@ -125,6 +133,12 @@
 
 .sheetBody {
   padding: var(--space-4);
+  /* .bottomSheet가 flex-column이 되면서, 핸들/헤더는 고정되고 본문만 스크롤되도록
+     이 영역에서만 overflow-y를 처리한다(내용이 길어도 안 잘리고 끝까지 스크롤됨). */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ===== 로딩 / 에러 배너 ===== */
@@ -191,4 +205,48 @@
   border-radius: var(--radius-full);
   transition: width var(--duration-slow) var(--ease-standard);
   min-width: 0;
+}
+
+/* ===== 기록 추가 — 로직 선택 목록 ===== */
+.logicPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.logicPickerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  font-family: var(--font-family-base);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  min-height: 48px;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              background var(--duration-fast) var(--ease-standard);
+}
+
+.logicPickerItem:hover {
+  border-color: var(--color-primary);
+  background: var(--color-bg-subtle);
+}
+
+.logicPickerBadge {
+  font-size: var(--text-xs);
+  font-weight: var(--font-regular);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
 }

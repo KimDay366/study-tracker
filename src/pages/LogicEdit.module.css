@@ -4,7 +4,10 @@
 ============================================= */
 
 .editPage {
-  min-height: 100vh;
+  /* 100vh 대신 100% — PC에서 AppShell(SideNav) 안에 중첩될 때도 부모(mainContent) 높이에
+     맞춰지도록 한다. html/body/#root에 height:100%가 이미 걸려 있어 단독 렌더(모바일/태블릿)
+     시에도 동일하게 뷰포트 전체 높이를 채운다. */
+  min-height: 100%;
   background: var(--color-bg-base);
   display: flex;
   flex-direction: column;
@@ -372,31 +375,32 @@
   flex: 1;
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
+  height: 50px;
   border-radius: var(--radius-full);
   outline: none;
   cursor: pointer;
   min-width: 0;
 }
 
+/* 트랙이 50px로 두꺼워진 만큼, 20px 썸은 상대적으로 너무 작아 보여 균형 맞춰 32px로 확대 */
 .catSlider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
   background: var(--color-bg-surface);
-  border: 2px solid var(--color-primary);
+  border: 3px solid var(--color-primary);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
 }
 
 .catSlider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
   background: var(--color-bg-surface);
-  border: 2px solid var(--color-primary);
+  border: 3px solid var(--color-primary);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
 }
@@ -422,10 +426,14 @@
 }
 
 .catMinutesLabel {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--color-text-secondary);
   white-space: nowrap;
   flex-shrink: 0;
+  /* 퍼센트가 바뀌어 분(minutes) 자릿수가 변해도 슬라이더/게이지 레이아웃이 흔들리지 않도록 폭 고정 */
+  display: inline-block;
+  min-width: 56px;
+  text-align: right;
 }
 
 /* ---- 방향② 가로 누적 막대 ---- */

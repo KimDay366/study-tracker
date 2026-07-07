@@ -19,12 +19,12 @@ function toYMD(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function getThisWeekSunday(): string {
+function getThisWeekMonday(): string {
   const now = new Date();
-  const dow = now.getDay(); // 0=일
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() - dow);
-  return toYMD(sunday);
+  const dow = (now.getDay() + 6) % 7; // 0=월 (월요일 시작 주)
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dow);
+  return toYMD(monday);
 }
 
 function addWeeks(weekStartDate: string, delta: number): string {
@@ -109,28 +109,39 @@ function getWeekDates(weekStartDate: string): string[] {
 // ==============================
 interface AccordionItemProps {
   dateStr: string;
-  record: DailyRecord | null;
+  /** 다중 로직 대응: 그 날짜의 로직 그룹 배열(빈 배열 = 기록 없음). 주간 스코어는 그룹들을 합산해 보여준다. */
+  records: DailyRecord[];
   isToday: boolean;
   isFuture: boolean;
 }
 
-function AccordionItem({ dateStr, record, isToday, isFuture }: AccordionItemProps) {
+function AccordionItem({ dateStr, records, isToday, isFuture }: AccordionItemProps) {
   const [open, setOpen] = useState(false);
   const d = new Date(dateStr + 'T00:00:00');
   const dow = d.getDay();
   const isSunday = dow === 0;
   const dateLabel = formatDateLabel(dateStr);
 
-  const totalPct = record?.achievementCache?.totalAchievementPercent ?? null;
-  const hasRecord = !!record;
-  const logicName = record?.logicSnapshot.name ?? null;
+  const hasRecord = records.length > 0;
+  const multiGroup = records.length > 1;
+
+  // 총 달성률 — 같은 날짜의 여러 로직 그룹을 SUM(누적 공부시간 / 누적 목표시간)해 하루 전체 스코어로 보여준다.
+  const totalMinutes = records.reduce(
+    (sum, r) => sum + r.sessions.reduce((s, sess) => s + sess.durationMinutes, 0), 0,
+  );
+  const totalTarget = records.reduce((sum, r) => sum + r.logicSnapshot.totalTargetMinutes, 0);
+  const totalPct = hasRecord
+    ? (totalTarget > 0 ? Math.round((totalMinutes / totalTarget) * 1000) / 10 : 0)
+    : null;
+  // 오늘 로직이 여럿이면 이름을 함께 표시(예: "수능 D-100 · 내신 대비")
+  const logicName = hasRecord ? records.map(r => r.logicSnapshot.name ?? '[삭제된 로직]').join(' · ') : null;
 
   // 기록 없는 날: 펼쳐도 내용 없음 → 클릭 불필요
   const canToggle = hasRecord;
 
-  // 카테고리별 달성률 계산
+  // 카테고리별 달성률 계산 — 그룹이 여럿이면 카테고리 이름 앞에 로직명을 붙여 구분한다.
   const catPercents: Array<{ id: string; name: string; colorVar: string; pct: number }> = [];
-  if (record) {
+  records.forEach(record => {
     const catMinMap = new Map<string, number>();
     record.sessions.forEach(s => {
       catMinMap.set(s.categoryId, (catMinMap.get(s.categoryId) ?? 0) + s.durationMinutes);
@@ -140,9 +151,10 @@ function AccordionItem({ dateStr, record, isToday, isFuture }: AccordionItemProp
       const pct = cat.targetMinutes > 0
         ? Math.round((actual / cat.targetMinutes) * 1000) / 10
         : 0;
-      catPercents.push({ id: cat.id, name: cat.name, colorVar: cat.colorVar, pct });
+      const name = multiGroup ? `[${record.logicSnapshot.name}] ${cat.name}` : cat.name;
+      catPercents.push({ id: cat.id, name, colorVar: cat.colorVar, pct });
     });
-  }
+  });
 
   return (
     <div className={styles.accordionItem}>
@@ -227,10 +239,10 @@ export function WeeklyReview() {
   const [searchParams] = useSearchParams();
   const showToast = useUIStore(s => s.showToast);
 
-  const thisWeekSunday = getThisWeekSunday();
+  const thisWeekMonday = getThisWeekMonday();
 
   // 쿼리스트링으로 주 전달받기 (달력 연동)
-  const initialWeek = searchParams.get('week') ?? thisWeekSunday;
+  const initialWeek = searchParams.get('week') ?? thisWeekMonday;
   const [weekStartDate, setWeekStartDate] = useState(initialWeek);
 
   const [keep, setKeep] = useState('');
@@ -245,10 +257,11 @@ export function WeeklyReview() {
   const todayStr = toYMD(new Date());
 
   // 해당 주 7일 기록 (서버 조회, 달력/타이머와 캐시 공유)
+  // 다중 로직 대응: 하루에 로직 그룹이 여럿일 수 있으므로 날짜별로 배열을 보관한다.
   const recordQueries = useWeekRecords(weekDates);
-  const records = new Map<string, DailyRecord>();
+  const records = new Map<string, DailyRecord[]>();
   recordQueries.forEach((q, i) => {
-    if (q.data) records.set(weekDates[i], q.data);
+    records.set(weekDates[i], q.data ?? []);
   });
 
   // 기존 회고 로드 (서버)
@@ -269,12 +282,12 @@ export function WeeklyReview() {
 
   const handleNextWeek = useCallback(() => {
     const next = addWeeks(weekStartDate, 1);
-    if (next <= thisWeekSunday) {
+    if (next <= thisWeekMonday) {
       setWeekStartDate(next);
     }
-  }, [weekStartDate, thisWeekSunday]);
+  }, [weekStartDate, thisWeekMonday]);
 
-  const canGoNext = addWeeks(weekStartDate, 1) <= thisWeekSunday;
+  const canGoNext = addWeeks(weekStartDate, 1) <= thisWeekMonday;
 
   const handleRefreshQuote = useCallback(() => {
     setCurrentQuoteIdx(prev => {
@@ -328,7 +341,7 @@ export function WeeklyReview() {
     }
   }, [weekStartDate, keep, problem, tryText, pledge, showToast, upsertMutation]);
 
-  const isNotSunday = !isTodaySunday() && weekStartDate === thisWeekSunday;
+  const isNotSunday = !isTodaySunday() && weekStartDate === thisWeekMonday;
   const weekRangeLabel = formatWeekRange(weekStartDate);
   const currentQuote = QUOTES[currentQuoteIdx];
 
@@ -375,14 +388,14 @@ export function WeeklyReview() {
           <div className={styles.sectionCard} style={{ marginBottom: 0 }}>
             <div className={styles.sectionCardHeader}>이번 주 스코어</div>
             {weekDates.map(dateStr => {
-              const record = records.get(dateStr) ?? null;
+              const dayRecords = records.get(dateStr) ?? [];
               const isToday = dateStr === todayStr;
               const isFuture = dateStr > todayStr;
               return (
                 <AccordionItem
                   key={dateStr}
                   dateStr={dateStr}
-                  record={record}
+                  records={dayRecords}
                   isToday={isToday}
                   isFuture={isFuture}
                 />

@@ -3,7 +3,7 @@ import type { CalendarCell } from '@/hooks/useCalendarMonth';
 import { formatMinutes } from '@/hooks/useCalendarMonth';
 import styles from './CalendarGrid.module.css';
 
-const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']; // 월요일 시작
 const MAX_DOTS = 3;
 
 interface Props {
@@ -58,7 +58,7 @@ export function CalendarGrid({
         {DAY_LABELS.map((label, i) => (
           <div
             key={label}
-            className={`${styles.dayHeader} ${i === 0 ? styles.dayHeaderSun : ''} ${i === 6 ? styles.dayHeaderSat : ''}`}
+            className={`${styles.dayHeader} ${i === 6 ? styles.dayHeaderSun : ''} ${i === 5 ? styles.dayHeaderSat : ''}`}
             role="columnheader"
           >
             {label}
@@ -71,18 +71,26 @@ export function CalendarGrid({
         {cells.map((cell) => {
           const { date, dayOfMonth, isCurrentMonth, isToday, isSunday, isSaturday, info } = cell;
           const cellExt = cell as CellWithReview;
+          // 주간 회고는 "그 주(월~일)의 월요일" 날짜를 키로 사용 — 일요일 셀 자신의 날짜가 아니다.
+          const reviewWeekDate = cell.weekStartDate ?? date;
           const isSelected = date === selectedDate;
           const hasRecord = !!info;
 
-          // 카테고리 도트 (최대 3개 + 초과 수)
+          // 카테고리 도트 (최대 3개 + 초과 수) — 그 날의 모든 로직 그룹을 합쳐 세션이 있는 카테고리만
           const catDots = hasRecord
-            ? (info.record?.logicSnapshot.categories ?? []).filter((cat) => {
-                const sessions = info.record?.sessions.filter((s) => s.categoryId === cat.id) ?? [];
-                return sessions.length > 0;
-              })
+            ? info.groups.flatMap((g) =>
+                g.record.logicSnapshot.categories
+                  .filter((cat) => g.record.sessions.some((s) => s.categoryId === cat.id))
+                  .map((cat) => ({ key: `${g.record.logicId}:${cat.id}`, colorVar: cat.colorVar })),
+              )
             : [];
           const visibleDots = catDots.slice(0, MAX_DOTS);
           const extraDots = catDots.length - MAX_DOTS;
+
+          // 무지개 하트 — 로직 하나 달성(전체 달성률 100%)할 때마다 1개씩 누적
+          const heartCount = hasRecord ? info.groups.filter((g) => g.rainbowHeart).length : 0;
+          // 무지개 별 — 그날의 로직을 "모두" 달성했을 때만 딱 1개(누적 아님, 날짜 단위 판정)
+          const allAchieved = hasRecord && info.allLogicsAchieved;
 
           // 날짜 숫자 색상 결정 (우선순위: otherMonth > today/selected > sun/sat > default)
           function getDateClassName(): string {
@@ -118,39 +126,35 @@ export function CalendarGrid({
                 }
               }}
             >
-              {/* 날짜 숫자 + 무지개 마커 */}
+              {/* 날짜 숫자 */}
               <div className={styles.cellDateRow}>
                 <span className={getDateClassName()}>{dayOfMonth}</span>
-                {hasRecord && (info.rainbowHeart || info.rainbowStar) && (
-                  <div className={styles.cellMarkers}>
-                    {info.rainbowHeart && (
-                      <span
-                        className={styles.rainbowMarker}
-                        title="전체 달성 100%! 무지개 하트"
-                      >
-                        ♥
-                      </span>
-                    )}
-                    {info.rainbowStar && (
-                      <span
-                        className={styles.rainbowMarker}
-                        title="모든 카테고리 100%! 무지개 별"
-                      >
-                        ★
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
+
+              {/* 무지개 마커 — 모든 뷰포트 동일: 날짜 숫자 아래, 아이콘 그대로 나열(♥♥♥★). 압축 표기 없음 */}
+              {hasRecord && (heartCount > 0 || allAchieved) && (
+                <div className={styles.cellMarkers}>
+                  {Array.from({ length: heartCount }, (_, i) => (
+                    <span key={`h${i}`} className={styles.rainbowMarker} aria-hidden="true">♥</span>
+                  ))}
+                  {allAchieved && (
+                    <span className={styles.rainbowMarker} aria-hidden="true">★</span>
+                  )}
+                  <span className={styles.srOnly}>
+                    {heartCount > 0 ? `달성한 로직 ${heartCount}개, 무지개 하트. ` : ''}
+                    {allAchieved ? `오늘 로직 ${info.groups.length}개 모두 달성, 무지개 별.` : ''}
+                  </span>
+                </div>
+              )}
 
               {/* 카테고리 도트 */}
               {visibleDots.length > 0 && (
                 <div className={styles.cellDots}>
-                  {visibleDots.map((cat) => (
+                  {visibleDots.map((dot) => (
                     <span
-                      key={cat.id}
+                      key={dot.key}
                       className={styles.cellDot}
-                      style={{ background: `var(${cat.colorVar})` }}
+                      style={{ background: `var(${dot.colorVar})` }}
                     />
                   ))}
                   {extraDots > 0 && (
@@ -173,7 +177,7 @@ export function CalendarGrid({
                       className={styles.reviewBtnDone}
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/weekly-review?week=${date}`);
+                        navigate(`/weekly-review?week=${reviewWeekDate}`);
                       }}
                       aria-label="주간 회고 보기"
                     >
@@ -185,7 +189,7 @@ export function CalendarGrid({
                       className={styles.reviewBtnEmpty}
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/weekly-review?week=${date}`);
+                        navigate(`/weekly-review?week=${reviewWeekDate}`);
                       }}
                       aria-label="주간 회고 작성하기"
                     >

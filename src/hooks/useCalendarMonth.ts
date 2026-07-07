@@ -1,18 +1,33 @@
 import { useMemo } from 'react';
 import type { DailyRecord, Session } from '@/types';
-import { calcAchievementPercent } from '@/lib/calculator/achievement';
+import { calcAchievementPercent, capAveragePercent } from '@/lib/calculator/achievement';
 
-export interface CalendarDayInfo {
-  date: string; // YYYY-MM-DD
-  record: DailyRecord | null;
+/**
+ * 하루 안의 로직 그룹 하나(=daily_records 한 행)에 대한 집계.
+ * 달성률/무지개 뱃지는 항상 이 그룹 스코프 안에서만 계산된다(그룹 간 합산 없음, §8-1 정책).
+ */
+export interface CalendarGroupInfo {
+  record: DailyRecord;
   totalMinutes: number;
   totalAchievementPercent: number;
   /** 카테고리별 달성률 (index = logicSnapshot.categories 순서) */
   categoryPercents: number[];
-  /** 무지개 하트: 전체 달성 >= 100% */
+  /** 무지개 하트: 이 그룹(로직) 하나의 전체 달성 >= 100% — 달력 셀 하트 배지 카운트(로직 달성 개수)에 사용 */
   rainbowHeart: boolean;
-  /** 무지개 별: 모든 카테고리 >= 100% */
+  /** 이 그룹의 모든 카테고리 >= 100% (DayDetail 그룹 요약 배지 전용 — 달력 셀의 무지개 별과는 무관.
+   *  무지개 별은 날짜 단위 판정으로 대체됐다 → CalendarDayInfo.allLogicsAchieved 참고) */
   rainbowStar: boolean;
+}
+
+export interface CalendarDayInfo {
+  date: string; // YYYY-MM-DD
+  /** 그 날짜의 로직 그룹들 (하루에 로직을 여러 번 바꾸면 여러 개) */
+  groups: CalendarGroupInfo[];
+  /** 그룹들의 공부 시간 합계 (셀 표시·월 통계용. 달성률 판정에는 쓰지 않음) */
+  totalMinutes: number;
+  /** 무지개 별: 그날 존재하는 로직 그룹이 하나 이상이고, 그 그룹 전부가 달성(rainbowHeart)일 때만 true.
+   *  로직별 누적이 아니라 "그날의 로직을 모두 달성"했을 때 딱 1개만 켜지는 날짜 단위 판정. */
+  allLogicsAchieved: boolean;
   /** 주간 회고 작성 여부 (일요일 셀 전용, undefined = 일요일 아님) */
   weeklyReviewDone?: boolean;
 }
@@ -34,7 +49,7 @@ export interface CalendarCell {
   isSunday: boolean;
   isSaturday: boolean;
   info: CalendarDayInfo | null;
-  /** 일요일인 경우 해당 주 시작 주간 회고 weekStartDate */
+  /** 일요일(주 마지막 칸)인 경우 해당 주(월~일) 시작일(월요일) — 주간 회고 weekStartDate */
   weekStartDate?: string;
 }
 
@@ -54,15 +69,14 @@ function toYMD(date: Date): string {
 export function useCalendarMonth(
   year: number,
   month: number,
-  recordMap: Map<string, DailyRecord>,
+  recordMap: Map<string, DailyRecord[]>,
   weeklyReviewDoneDates?: Set<string>,
 ): UseCalendarMonthResult {
   return useMemo(() => {
     const today = toYMD(new Date());
 
-    // 날짜별 집계
-    const dayInfoMap = new Map<string, CalendarDayInfo>();
-    recordMap.forEach((record, date) => {
+    // 하나의 로직 그룹(레코드)에 대한 집계 — 그룹 스코프 안에서만 계산(그룹 간 합산 없음)
+    function calcGroupInfo(record: DailyRecord): CalendarGroupInfo {
       const cache = record.achievementCache;
       let totalMinutes = 0;
       let totalAchievementPercent = 0;
@@ -95,24 +109,33 @@ export function useCalendarMonth(
       const rainbowStar =
         categoryPercents.length > 0 && categoryPercents.every((p) => p >= 100);
 
+      return { record, totalMinutes, totalAchievementPercent, categoryPercents, rainbowHeart, rainbowStar };
+    }
+
+    // 날짜별 집계 — 같은 날짜에 로직 그룹이 여럿이면 그룹별로 각각 계산해 배열로 보관
+    const dayInfoMap = new Map<string, CalendarDayInfo>();
+    recordMap.forEach((records, date) => {
+      const groups = records.map(calcGroupInfo);
+      const totalMinutes = groups.reduce((sum, g) => sum + g.totalMinutes, 0);
+      // 무지개 별(신규 규칙): 그날 로직이 하나 이상 있고, 전부 달성(rainbowHeart)일 때만 true.
+      const allLogicsAchieved = groups.length > 0 && groups.every((g) => g.rainbowHeart);
+
       dayInfoMap.set(date, {
         date,
-        record,
+        groups,
         totalMinutes,
-        totalAchievementPercent,
-        categoryPercents,
-        rainbowHeart,
-        rainbowStar,
+        allLogicsAchieved,
       });
     });
 
-    // 달력 셀 생성
+    // 달력 셀 생성 (월요일 시작 — 한 행 = 월~일 한 주)
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
-    const startOffset = firstDay.getDay(); // 0=일
+    const startOffset = (firstDay.getDay() + 6) % 7; // 월=0 … 일=6 기준 오프셋
     const totalDays = lastDay.getDate();
     const totalCells = Math.ceil((startOffset + totalDays) / 7) * 7;
 
+    let currentWeekMonday = ''; // 현재 순회 중인 행(주)의 월요일 날짜 — i%7===0일 때 갱신
     const cells: CalendarCell[] = [];
     for (let i = 0; i < totalCells; i++) {
       const cellDate = new Date(year, month - 1, 1 - startOffset + i);
@@ -122,16 +145,20 @@ export function useCalendarMonth(
       const isSunday = dow === 0;
       const isSaturday = dow === 6;
 
+      if (i % 7 === 0) {
+        currentWeekMonday = dateStr;
+      }
+
       let weekStartDate: string | undefined;
       if (isSunday) {
-        weekStartDate = dateStr;
+        weekStartDate = currentWeekMonday;
       }
 
       const info = dayInfoMap.get(dateStr) ?? null;
 
-      // 일요일 주간 회고 여부 (호출부에서 주입된 서버 데이터)
+      // 일요일(그 주 마지막 칸) 기준 주간 회고 여부 — 주 시작(월요일) 날짜로 조회 (호출부에서 주입된 서버 데이터)
       if (isSunday) {
-        const reviewDone = weeklyReviewDoneDates?.has(dateStr) ?? false;
+        const reviewDone = weeklyReviewDoneDates?.has(currentWeekMonday) ?? false;
         if (info) {
           info.weeklyReviewDone = reviewDone;
         }
@@ -165,16 +192,20 @@ export function useCalendarMonth(
       });
     }
 
-    // 월별 통계
+    // 월별 통계 — totalMinutes/totalTarget은 표시용("N분/N분") 단순 합계로 그대로 유지.
+    // achievementPercent는 날짜 "총 달성률"과 동일하게 그 달 모든 그룹을 각 100%로 캡한 뒤 평균한다
+    // (합산 방식이면 초과 달성 로직이 미달 로직을 상쇄해 부풀려지므로).
     let monthTotalMinutes = 0;
     let monthTotalTarget = 0;
+    const monthGroupPercents: number[] = [];
     dayInfoMap.forEach((info) => {
       monthTotalMinutes += info.totalMinutes;
-      monthTotalTarget += info.record?.logicSnapshot.totalTargetMinutes ?? 0;
+      info.groups.forEach((g) => {
+        monthTotalTarget += g.record.logicSnapshot.totalTargetMinutes;
+        monthGroupPercents.push(g.totalAchievementPercent);
+      });
     });
-    const monthAchievementPercent = monthTotalTarget > 0
-      ? Math.round((monthTotalMinutes / monthTotalTarget) * 1000) / 10
-      : 0;
+    const monthAchievementPercent = capAveragePercent(monthGroupPercents);
 
     return {
       calendarCells: cells,
