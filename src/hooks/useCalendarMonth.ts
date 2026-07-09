@@ -115,7 +115,9 @@ export function useCalendarMonth(
     // 날짜별 집계 — 같은 날짜에 로직 그룹이 여럿이면 그룹별로 각각 계산해 배열로 보관
     const dayInfoMap = new Map<string, CalendarDayInfo>();
     recordMap.forEach((records, date) => {
-      const groups = records.map(calcGroupInfo);
+      // 세션(기록)이 있는 로직만 달력에 표시 — 세션 0개 잔존 그룹이 스테일
+      // 캐시로 넘어와도 노출되지 않게 방어(백엔드 조회 필터와 이중 안전장치)
+      const groups = records.filter((r) => r.sessions.length > 0).map(calcGroupInfo);
       const totalMinutes = groups.reduce((sum, g) => sum + g.totalMinutes, 0);
       // 무지개 별(신규 규칙): 그날 로직이 하나 이상 있고, 전부 달성(rainbowHeart)일 때만 true.
       const allLogicsAchieved = groups.length > 0 && groups.every((g) => g.rainbowHeart);
