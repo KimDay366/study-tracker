@@ -28,6 +28,11 @@ export function CalendarGrid({
   onMonthChange,
 }: Props) {
   const navigate = useNavigate();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  // 뒤로가기 시 보던 달로 복귀시키기 위해 현재 달력 월을 함께 넘긴다.
+  const fromMonth = `${year}-${pad(month)}`;
   return (
     <div>
       {/* 월 네비게이션 */}
@@ -177,11 +182,23 @@ export function CalendarGrid({
                       className={styles.reviewBtnDone}
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/weekly-review?week=${reviewWeekDate}`);
+                        navigate(`/weekly-review?week=${reviewWeekDate}&from=${fromMonth}`);
                       }}
                       aria-label="주간 정리 보기"
                     >
                       ✓ 회고
+                    </button>
+                  ) : date > todayStr ? (
+                    // 아직 오지 않은 주(미래 일요일)는 등록 불가 — 버튼 비활성화
+                    <button
+                      type="button"
+                      className={styles.reviewBtnEmpty}
+                      disabled
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="아직 작성할 수 없어요"
+                      style={{ opacity: 0.4, cursor: 'default' }}
+                    >
+                      + 회고
                     </button>
                   ) : (
                     <button
@@ -189,7 +206,7 @@ export function CalendarGrid({
                       className={styles.reviewBtnEmpty}
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/weekly-review?week=${reviewWeekDate}`);
+                        navigate(`/weekly-review?week=${reviewWeekDate}&from=${fromMonth}`);
                       }}
                       aria-label="주간 정리 작성하기"
                     >

@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { DailyRecord } from '@/types';
 import { useWeekRecords } from '@/hooks/query/useDailyRecords';
 import { useWeeklyReview, useUpsertWeeklyReview } from '@/hooks/query/useWeeklyReviews';
+import { getApiErrorCode } from '@/lib/api/errorCode';
 import { QUOTES, getRandomQuote } from '@/lib/quotes';
 import { useUIStore } from '@/stores/uiStore';
 import styles from './WeeklyReview.module.css';
@@ -33,6 +34,12 @@ function addWeeks(weekStartDate: string, delta: number): string {
   return toYMD(d);
 }
 
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return toYMD(d);
+}
+
 function formatWeekRange(weekStartDate: string): string {
   const start = new Date(weekStartDate + 'T00:00:00');
   const end = new Date(weekStartDate + 'T00:00:00');
@@ -49,10 +56,6 @@ function formatDateLabel(dateStr: string): string {
   const dow = DOW_LABELS[d.getDay()];
   const label = `${m}.${String(day).padStart(2, '0')} (${dow})`;
   return label;
-}
-
-function isTodaySunday(): boolean {
-  return new Date().getDay() === 0;
 }
 
 // ==============================
@@ -237,6 +240,7 @@ function AccordionItem({ dateStr, records, isToday, isFuture }: AccordionItemPro
 // ==============================
 export function WeeklyReview() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const showToast = useUIStore(s => s.showToast);
 
   const thisWeekMonday = getThisWeekMonday();
@@ -244,6 +248,11 @@ export function WeeklyReview() {
   // 쿼리스트링으로 주 전달받기 (달력 연동)
   const initialWeek = searchParams.get('week') ?? thisWeekMonday;
   const [weekStartDate, setWeekStartDate] = useState(initialWeek);
+  // 뒤로가기 시 돌아갈 달력 월 (달력에서 넘어올 때 from=YYYY-MM 로 전달)
+  const fromMonth = searchParams.get('from');
+
+  // 등록/수정 여부: 이미 저장된 정리는 기본 '열람(잠금)' 상태, [수정] 버튼으로만 편집
+  const [editMode, setEditMode] = useState(false);
 
   const [keep, setKeep] = useState('');
   const [problem, setProblem] = useState('');
@@ -255,6 +264,13 @@ export function WeeklyReview() {
 
   const weekDates = useMemo(() => getWeekDates(weekStartDate), [weekStartDate]);
   const todayStr = toYMD(new Date());
+
+  // 등록·수정 가능 기간: 그 주 '일요일'(월+6) ~ +30일. 미래엔 미개시, 그 후엔 마감.
+  const weekSunday = addDays(weekStartDate, 6);
+  const editDeadline = addDays(weekSunday, 30);
+  const isFutureWeek = todayStr < weekSunday;
+  const isExpired = todayStr > editDeadline;
+  const canEdit = !isFutureWeek && !isExpired;
 
   // 해당 주 7일 기록 (서버 조회, 달력/타이머와 캐시 공유)
   // 다중 플랜 대응: 하루에 플랜 그룹이 여럿일 수 있으므로 날짜별로 배열을 보관한다.
@@ -274,7 +290,12 @@ export function WeeklyReview() {
     // 저장된 pledge는 usedBuiltinQuote 여부와 무관하게 항상 복원
     setPledge(existingReview?.pledge ?? '');
     setPledgeVisible(false);
-  }, [existingReview]);
+    // 이미 저장된 주는 잠금(열람), 미저장이면서 기간 내면 바로 작성 모드로 시작
+    const wkSun = addDays(weekStartDate, 6);
+    const editable = todayStr >= wkSun && todayStr <= addDays(wkSun, 30);
+    setEditMode(existingReview ? false : editable);
+    // todayStr은 하루 단위 상수라 의존성에서 제외
+  }, [existingReview, weekStartDate]);
 
   const handlePrevWeek = useCallback(() => {
     setWeekStartDate(prev => addWeeks(prev, -1));
@@ -334,19 +355,35 @@ export function WeeklyReview() {
         },
       });
       showToast('주간 정리가 저장됐어요.', 'success');
-    } catch {
-      showToast('저장 중 오류가 발생했어요.', 'danger');
+      setEditMode(false); // 저장 후 잠금(열람) 상태로 전환
+    } catch (err) {
+      const code = getApiErrorCode(err);
+      if (code === 'WEEKLY_REVIEW_NOT_OPEN') {
+        showToast('아직 이 주의 정리를 작성할 수 없어요.', 'danger');
+      } else if (code === 'WEEKLY_REVIEW_WINDOW_CLOSED') {
+        showToast('작성·수정 기간이 지났어요. (일요일부터 30일까지)', 'danger');
+      } else {
+        showToast('저장 중 오류가 발생했어요.', 'danger');
+      }
     } finally {
       setSaving(false);
     }
   }, [weekStartDate, keep, problem, tryText, pledge, showToast, upsertMutation]);
 
-  const isNotSunday = !isTodaySunday() && weekStartDate === thisWeekMonday;
   const weekRangeLabel = formatWeekRange(weekStartDate);
   const currentQuote = QUOTES[currentQuoteIdx];
 
   return (
     <div>
+      {/* 뒤로: 보던 달력 월로 복귀 */}
+      <button
+        type="button"
+        className={styles.backLink}
+        onClick={() => navigate(`/calendar?ym=${fromMonth ?? weekStartDate.slice(0, 7)}`)}
+      >
+        ← 달력으로
+      </button>
+
       {/* 헤더: 제목 + 주 선택기 */}
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>주간 정리</h1>
@@ -372,11 +409,17 @@ export function WeeklyReview() {
         </div>
       </div>
 
-      {/* 일요일 안내 배너 */}
-      {isNotSunday && (
+      {/* 상태 배너 — 미래(미개시) / 마감(열람만) 안내 */}
+      {isFutureWeek && (
         <div className={styles.infoBanner}>
-          <span>📅</span>
-          <span>일요일에 정리를 작성하면 한 주를 더 잘 마무리할 수 있어요!</span>
+          <span>🔒</span>
+          <span>아직 이 주의 정리를 작성할 수 없어요. 이 주 일요일부터 작성할 수 있어요.</span>
+        </div>
+      )}
+      {isExpired && (
+        <div className={styles.infoBanner}>
+          <span>⏳</span>
+          <span>작성·수정 기간이 지났어요. (해당 주 일요일로부터 30일까지) 지금은 열람만 가능해요.</span>
         </div>
       )}
 
@@ -407,7 +450,17 @@ export function WeeklyReview() {
         {/* 오른쪽: KPT 정리 + 저장 */}
         <div>
           <div className={styles.sectionCard}>
-            <div className={styles.sectionCardHeader}>KPT 정리</div>
+            <div
+              className={styles.sectionCardHeader}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <span>KPT 정리</span>
+              {existingReview && !editMode && canEdit && (
+                <button type="button" className={styles.btnEdit} onClick={() => setEditMode(true)}>
+                  ✎ 수정
+                </button>
+              )}
+            </div>
             <div className={styles.sectionCardBody}>
               <div className={styles.kptSection}>
 
@@ -418,10 +471,11 @@ export function WeeklyReview() {
                     Keep — 계속 유지할 것
                   </div>
                   <textarea
-                    className={styles.textarea}
+                    className={`${styles.textarea} ${!editMode ? styles.textareaLocked : ''}`}
                     rows={3}
                     value={keep}
                     onChange={e => setKeep(e.target.value)}
+                    readOnly={!editMode}
                     placeholder="이번 주에 잘한 것, 계속하고 싶은 습관을 적어 보세요."
                   />
                 </div>
@@ -433,10 +487,11 @@ export function WeeklyReview() {
                     Problem — 문제였던 것
                   </div>
                   <textarea
-                    className={styles.textarea}
+                    className={`${styles.textarea} ${!editMode ? styles.textareaLocked : ''}`}
                     rows={3}
                     value={problem}
                     onChange={e => setProblem(e.target.value)}
+                    readOnly={!editMode}
                     placeholder="이번 주에 잘 안 됐거나 개선이 필요한 점을 적어 보세요."
                   />
                 </div>
@@ -448,29 +503,33 @@ export function WeeklyReview() {
                       <span className={`${styles.kptBadge} ${styles.kptBadgeT}`}>T</span>
                       Try — 다음 주에 시도할 것
                     </div>
-                    <button
-                      type="button"
-                      className={styles.btnPledgeTrigger}
-                      onClick={() => setPledgeVisible(v => !v)}
-                    >
-                      ✨ 한줄다짐 보기
-                    </button>
+                    {editMode && (
+                      <button
+                        type="button"
+                        className={styles.btnPledgeTrigger}
+                        onClick={() => setPledgeVisible(v => !v)}
+                      >
+                        ✨ 한줄다짐 보기
+                      </button>
+                    )}
                   </div>
                   <textarea
-                    className={styles.textarea}
+                    className={`${styles.textarea} ${!editMode ? styles.textareaLocked : ''}`}
                     rows={3}
                     value={tryText}
                     onChange={e => setTryText(e.target.value)}
+                    readOnly={!editMode}
                     placeholder="다음 주에 새롭게 시도하거나 개선할 방법을 적어 보세요."
                   />
 
                   {/* 한줄다짐 입력 필드 */}
                   <textarea
-                    className={styles.textarea}
+                    className={`${styles.textarea} ${!editMode ? styles.textareaLocked : ''}`}
                     rows={2}
                     maxLength={200}
                     value={pledge}
                     onChange={e => setPledge(e.target.value)}
+                    readOnly={!editMode}
                     placeholder="이번 주 나만의 한 줄 다짐을 적어 보세요."
                     style={{ marginTop: 'var(--space-2)' }}
                   />
@@ -510,15 +569,17 @@ export function WeeklyReview() {
             </div>
           </div>
 
-          {/* 저장 버튼 */}
-          <button
-            type="button"
-            className={styles.btnSave}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            회고 저장하기
-          </button>
+          {/* 저장 버튼 — 편집 모드(작성/수정)일 때만 */}
+          {editMode && (
+            <button
+              type="button"
+              className={styles.btnSave}
+              onClick={handleSave}
+              disabled={saving || !canEdit}
+            >
+              {existingReview ? '수정 저장하기' : '주간 정리 저장하기'}
+            </button>
+          )}
         </div>
 
       </div>

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Session, DailyRecord } from '@/types';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useCalendarMonth } from '@/hooks/useCalendarMonth';
@@ -45,8 +46,13 @@ export function Calendar() {
   const today = getToday();
   const todayDate = new Date(today + 'T00:00:00');
 
-  const [year, setYear] = useState(todayDate.getFullYear());
-  const [month, setMonth] = useState(todayDate.getMonth() + 1);
+  // ?ym=YYYY-MM 으로 초기 월 지정 (주간 정리에서 뒤로가기 시 보던 달로 복귀)
+  const [searchParams] = useSearchParams();
+  const ymParam = searchParams.get('ym');
+  const ymMatch = ymParam && /^\d{4}-\d{2}$/.test(ymParam) ? ymParam : null;
+
+  const [year, setYear] = useState(ymMatch ? Number(ymMatch.slice(0, 4)) : todayDate.getFullYear());
+  const [month, setMonth] = useState(ymMatch ? Number(ymMatch.slice(5, 7)) : todayDate.getMonth() + 1);
   // 모바일: 선택 날짜 → 바텀시트 열림 / 태블릿+: 인라인 패널
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);

@@ -1,6 +1,5 @@
 import type { SVGProps } from 'react';
 import { NavLink } from 'react-router-dom';
-import { useWeeklyReviewBadge } from '@/hooks/useWeeklyReviewBadge';
 import styles from './SideNav.module.css';
 
 type IconProps = SVGProps<SVGSVGElement>;
@@ -19,16 +18,6 @@ function IconCalendar(props: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M16 3v4M8 3v4M3 10h18" />
-    </svg>
-  );
-}
-
-function IconReview(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6H8Z" />
-      <path d="M14 3v5a1 1 0 0 0 1 1h5" />
-      <path d="M8 13h8M8 17h5" />
     </svg>
   );
 }
@@ -64,14 +53,12 @@ function IconSettings(props: IconProps) {
 const NAV_ITEMS = [
   { path: '/', label: '오늘의 플랜', Icon: IconHome },
   { path: '/calendar', label: '달력', Icon: IconCalendar },
-  { path: '/weekly-review', label: '주간 정리', Icon: IconReview },
   { path: '/logics', label: '플랜 관리', Icon: IconPlan },
   { path: '/routine', label: '루틴 설정', Icon: IconRoutine },
   { path: '/settings', label: '설정', Icon: IconSettings },
 ] as const;
 
 export function SideNav() {
-  const showReviewBadge = useWeeklyReviewBadge();
   return (
     <nav className={styles.sideNav}>
       <div className={styles.logo}>차곡</div>
@@ -84,12 +71,7 @@ export function SideNav() {
               className={({ isActive }) => isActive ? styles.active : undefined}
             >
               <Icon className={styles.navIcon} aria-hidden="true" />
-              <span className={styles.navLabel}>
-                {label}
-                {path === '/weekly-review' && showReviewBadge && (
-                  <span className={styles.navBadge}>이번 주 정리를 작성해 보세요!</span>
-                )}
-              </span>
+              <span className={styles.navLabel}>{label}</span>
             </NavLink>
           </li>
         ))}
