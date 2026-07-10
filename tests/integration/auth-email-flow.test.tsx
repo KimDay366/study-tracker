@@ -269,7 +269,7 @@ describe('VerifyEmail 페이지', () => {
     expect(screen.getByRole('status')).toHaveTextContent('이메일 인증이 완료되었습니다');
   });
 
-  it('만료된 토큰이면 실패 메시지가 표시된다', async () => {
+  it('토큰이 유효하지 않으면 안내 문구가 표시된다', async () => {
     mockVerifyEmail.mockRejectedValue({
       response: { data: { message: '토큰이 만료되었습니다.' } },
     });
@@ -278,7 +278,19 @@ describe('VerifyEmail 페이지', () => {
       renderVerifyEmail('?token=expired-token');
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('인증에 실패했어요');
-    expect(screen.getByRole('alert')).toHaveTextContent('토큰이 만료되었습니다');
+    expect(screen.getByRole('alert')).toHaveTextContent('인증 링크를 확인할 수 없어요');
+    // 이미 인증했거나 재발송이 필요한 두 경우를 모두 안내한다
+    expect(screen.getByRole('alert')).toHaveTextContent('이미 인증을 마치셨다면');
+    expect(screen.getByRole('alert')).toHaveTextContent('인증 메일을 다시 받아');
+  });
+
+  it('토큰이 있으면 페이지당 한 번만 인증 요청한다 (중복 POST 방지)', async () => {
+    mockVerifyEmail.mockResolvedValue({ message: '인증 완료' });
+
+    await act(async () => {
+      renderVerifyEmail('?token=once-token');
+    });
+
+    expect(mockVerifyEmail).toHaveBeenCalledTimes(1);
   });
 });

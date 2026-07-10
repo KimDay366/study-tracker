@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { verifyEmail } from '@/api/auth';
 import styles from './VerifyEmail.module.css';
@@ -10,18 +10,18 @@ export function VerifyEmail() {
   const token = searchParams.get('token');
 
   const [status, setStatus] = useState<Status>(token ? 'loading' : 'no-token');
-  const [errorMessage, setErrorMessage] = useState('');
+  // 1회용 토큰이 두 번 POST되면 두 번째가 실패로 표시되므로, 페이지당 한 번만 요청한다.
+  // (StrictMode 이중 실행·리마운트 방어. React ref는 리렌더에도 값이 유지된다.)
+  const requestedRef = useRef(false);
 
   useEffect(() => {
     if (!token) return;
+    if (requestedRef.current) return;
+    requestedRef.current = true;
 
     verifyEmail(token)
       .then(() => setStatus('success'))
-      .catch((err: unknown) => {
-        const e = err as { response?: { data?: { message?: string } }; message?: string };
-        setErrorMessage(e?.response?.data?.message ?? e?.message ?? '인증에 실패했어요.');
-        setStatus('error');
-      });
+      .catch(() => setStatus('error'));
     // token은 URL에서 한 번 읽으면 바뀌지 않으므로 의존성 배열에 포함
   }, [token]);
 
@@ -47,9 +47,13 @@ export function VerifyEmail() {
 
         {status === 'error' && (
           <div className={styles.errorBox} role="alert">
-            <p className={styles.errorText}>인증에 실패했어요.</p>
-            <p className={styles.subText}>{errorMessage}</p>
-            <p className={styles.subText}>링크가 만료됐다면 로그인 화면에서 인증 메일을 재발송할 수 있어요.</p>
+            <p className={styles.errorText}>인증 링크를 확인할 수 없어요.</p>
+            <p className={styles.subText}>
+              이미 인증을 마치셨다면 그대로 로그인하실 수 있어요.
+            </p>
+            <p className={styles.subText}>
+              링크가 만료됐거나 처음 인증이라면, 로그인 화면에서 인증 메일을 다시 받아 주세요.
+            </p>
             <Link to="/login" className={styles.actionBtn}>로그인 화면으로</Link>
           </div>
         )}

@@ -4,17 +4,18 @@ import { login, signup, resendVerification } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { clearSessionAndCache } from '@/lib/storage/clearLocalData';
 import { getApiErrorCode } from '@/lib/api/errorCode';
+import {
+  detectInAppBrowser,
+  inAppBrowserEscapeUrl,
+  inAppBrowserLabel,
+  type InAppBrowser,
+} from '@/lib/inAppBrowser';
 import { queryClient } from '@/App';
 import styles from './Login.module.css';
 
 type Tab = 'login' | 'signup';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:4000/api/v1';
-
-function handleGoogleLogin() {
-  // 백엔드 리다이렉트 방식 — 구글 인증 후 백엔드 콜백이 홈으로 되돌려보냄
-  window.location.href = `${API_BASE}/auth/google`;
-}
 
 function getApiErrorMessage(e: unknown): string {
   const err = e as { response?: { data?: { message?: string } }; message?: string };
@@ -33,6 +34,8 @@ export function Login() {
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+  // 인앱(카카오톡 등) 브라우저에서 구글 로그인 시도 시 안내 표시
+  const [inAppBrowser, setInAppBrowser] = useState<InAppBrowser | null>(null);
 
   // 로그인 폼
   const [loginEmail, setLoginEmail] = useState('');
@@ -136,6 +139,25 @@ export function Login() {
     } finally {
       setResendLoading(false);
     }
+  }
+
+  function handleGoogleLogin() {
+    // 백엔드 리다이렉트 방식 — 구글 인증 후 백엔드 콜백이 홈으로 되돌려보냄
+    const target = `${API_BASE}/auth/google`;
+
+    // 카카오톡 등 인앱 브라우저에서는 구글이 OAuth를 막는다(disallowed_useragent).
+    // 감지되면 기기 기본 브라우저로 탈출을 시도하고, 안내도 함께 노출한다.
+    const browser = detectInAppBrowser();
+    if (browser) {
+      setInAppBrowser(browser);
+      const escapeUrl = inAppBrowserEscapeUrl(target, browser);
+      if (escapeUrl) {
+        window.location.href = escapeUrl;
+      }
+      return;
+    }
+
+    window.location.href = target;
   }
 
   return (
@@ -298,6 +320,19 @@ export function Login() {
         <div className={styles.divider}>
           <span>또는</span>
         </div>
+
+        {inAppBrowser && (
+          <div className={styles.inAppNotice} role="alert">
+            <p className={styles.inAppTitle}>
+              {inAppBrowserLabel(inAppBrowser)}에서는 구글 로그인이 제한돼요
+            </p>
+            <p className={styles.inAppBody}>
+              앱 안의 브라우저에서는 구글 정책상 로그인이 막혀요. 화면 우측 위(또는 아래) 메뉴에서{' '}
+              <strong>‘다른 브라우저로 열기’</strong> 또는 <strong>‘Safari로 열기’</strong>를 눌러
+              접속한 뒤 다시 시도해 주세요. 이메일로 가입·로그인하실 수도 있어요.
+            </p>
+          </div>
+        )}
 
         <button
           type="button"

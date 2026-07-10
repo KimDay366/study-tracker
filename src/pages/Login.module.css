@@ -233,3 +233,25 @@
   color: var(--color-danger-strong);
   margin: 0;
 }
+
+.inAppNotice {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-subtle);
+  border: 1.5px solid var(--color-primary-light);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+}
+
+.inAppTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-primary-dark);
+  margin: 0 0 var(--space-1);
+}
+
+.inAppBody {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+  margin: 0;
+}
