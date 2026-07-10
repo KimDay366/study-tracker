@@ -15,7 +15,7 @@ export function SideNav() {
   const showReviewBadge = useWeeklyReviewBadge();
   return (
     <nav className={styles.sideNav}>
-      <div className={styles.logo}>스터디 트래커</div>
+      <div className={styles.logo}>차곡</div>
       <ul className={styles.navList}>
         {NAV_ITEMS.map(({ path, label }) => (
           <li key={path} className={styles.navItem}>

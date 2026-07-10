@@ -190,7 +190,7 @@ export function Settings() {
               className={styles.appInfoValue}
               style={{ fontFamily: 'var(--font-family-base)', fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}
             >
-              © 2026 스터디 트래커
+              © 2026 차곡
             </span>
           </div>
         </div>

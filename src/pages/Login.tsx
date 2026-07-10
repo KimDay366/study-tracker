@@ -164,7 +164,7 @@ export function Login() {
     <div className={styles.page}>
       <div className={styles.card}>
         <div className={styles.logo}>
-          <div className={styles.logoTitle}>스터디 트래커</div>
+          <div className={styles.logoTitle}>차곡</div>
           <div className={styles.logoSub}>꾸준함이 실력이 됩니다</div>
         </div>
 

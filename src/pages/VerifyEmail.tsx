@@ -29,7 +29,7 @@ export function VerifyEmail() {
     <div className={styles.page}>
       <div className={styles.card}>
         <div className={styles.logo}>
-          <div className={styles.logoTitle}>스터디 트래커</div>
+          <div className={styles.logoTitle}>차곡</div>
           <div className={styles.logoSub}>이메일 인증</div>
         </div>
 
