@@ -6,7 +6,7 @@ import {
 } from '@/lib/calculator/biDirectional';
 
 describe('calcFromCategoryMinutes (방향①)', () => {
-  it('3개 카테고리 → 합산 및 퍼센트', () => {
+  it('3개 활동 → 합산 및 퍼센트', () => {
     const { totalMinutes, percents } = calcFromCategoryMinutes([60, 30, 10]);
     expect(totalMinutes).toBe(100);
     // 퍼센트 합은 100이어야 함
@@ -14,7 +14,7 @@ describe('calcFromCategoryMinutes (방향①)', () => {
     expect(Math.abs(sum - 100)).toBeLessThanOrEqual(0.1);
   });
 
-  it('단일 카테고리 → 100%', () => {
+  it('단일 활동 → 100%', () => {
     const { totalMinutes, percents } = calcFromCategoryMinutes([120]);
     expect(totalMinutes).toBe(120);
     expect(percents[0]).toBe(100);
@@ -33,7 +33,7 @@ describe('calcFromTotalMinutes (방향②)', () => {
     expect(result).toEqual([50, 30, 20]);
   });
 
-  it('마지막 카테고리에 잔여 배분', () => {
+  it('마지막 활동에 잔여 배분', () => {
     // 100분, [33.3%, 33.3%, 33.4%] — 소수점 계산 오차 처리
     const result = calcFromTotalMinutes(100, [33.3, 33.3, 33.4]);
     const sum = result.reduce((a, b) => a + b, 0);

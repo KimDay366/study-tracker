@@ -1,6 +1,6 @@
 import type { StudyLogic, LogicSnapshot } from '@/types';
 
-/** StudyLogic → 세션 추가 시 함께 보낼 LogicSnapshot 생성 (로직/카테고리가 나중에 바뀌어도 그 시점 값을 박제). */
+/** StudyLogic → 세션 추가 시 함께 보낼 LogicSnapshot 생성 (플랜/활동이 나중에 바뀌어도 그 시점 값을 박제). */
 export function buildLogicSnapshot(logic: StudyLogic): LogicSnapshot {
   return {
     name: logic.name,

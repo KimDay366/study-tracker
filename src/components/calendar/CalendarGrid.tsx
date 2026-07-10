@@ -71,12 +71,12 @@ export function CalendarGrid({
         {cells.map((cell) => {
           const { date, dayOfMonth, isCurrentMonth, isToday, isSunday, isSaturday, info } = cell;
           const cellExt = cell as CellWithReview;
-          // 주간 회고는 "그 주(월~일)의 월요일" 날짜를 키로 사용 — 일요일 셀 자신의 날짜가 아니다.
+          // 주간 정리는 "그 주(월~일)의 월요일" 날짜를 키로 사용 — 일요일 셀 자신의 날짜가 아니다.
           const reviewWeekDate = cell.weekStartDate ?? date;
           const isSelected = date === selectedDate;
           const hasRecord = !!info;
 
-          // 카테고리 도트 (최대 3개 + 초과 수) — 그 날의 모든 로직 그룹을 합쳐 세션이 있는 카테고리만
+          // 활동 도트 (최대 3개 + 초과 수) — 그 날의 모든 플랜 그룹을 합쳐 세션이 있는 활동만
           const catDots = hasRecord
             ? info.groups.flatMap((g) =>
                 g.record.logicSnapshot.categories
@@ -87,9 +87,9 @@ export function CalendarGrid({
           const visibleDots = catDots.slice(0, MAX_DOTS);
           const extraDots = catDots.length - MAX_DOTS;
 
-          // 무지개 하트 — 로직 하나 달성(전체 달성률 100%)할 때마다 1개씩 누적
+          // 무지개 하트 — 플랜 하나 달성(전체 달성률 100%)할 때마다 1개씩 누적
           const heartCount = hasRecord ? info.groups.filter((g) => g.rainbowHeart).length : 0;
-          // 무지개 별 — 그날의 로직을 "모두" 달성했을 때만 딱 1개(누적 아님, 날짜 단위 판정)
+          // 무지개 별 — 그날의 플랜을 "모두" 달성했을 때만 딱 1개(누적 아님, 날짜 단위 판정)
           const allAchieved = hasRecord && info.allLogicsAchieved;
 
           // 날짜 숫자 색상 결정 (우선순위: otherMonth > today/selected > sun/sat > default)
@@ -141,13 +141,13 @@ export function CalendarGrid({
                     <span className={styles.rainbowMarker} aria-hidden="true">★</span>
                   )}
                   <span className={styles.srOnly}>
-                    {heartCount > 0 ? `달성한 로직 ${heartCount}개, 무지개 하트. ` : ''}
-                    {allAchieved ? `오늘 로직 ${info.groups.length}개 모두 달성, 무지개 별.` : ''}
+                    {heartCount > 0 ? `달성한 플랜 ${heartCount}개, 무지개 하트. ` : ''}
+                    {allAchieved ? `오늘 플랜 ${info.groups.length}개 모두 달성, 무지개 별.` : ''}
                   </span>
                 </div>
               )}
 
-              {/* 카테고리 도트 */}
+              {/* 활동 도트 */}
               {visibleDots.length > 0 && (
                 <div className={styles.cellDots}>
                   {visibleDots.map((dot) => (
@@ -168,7 +168,7 @@ export function CalendarGrid({
                 <span className={styles.cellTime}>{formatMinutes(info.totalMinutes)}</span>
               )}
 
-              {/* 일요일 — 주간 회고 마커 */}
+              {/* 일요일 — 주간 정리 마커 */}
               {isSunday && (
                 <div className={styles.weeklyReviewMarker}>
                   {cellExt.weeklyReviewDone ? (
@@ -179,7 +179,7 @@ export function CalendarGrid({
                         e.stopPropagation();
                         navigate(`/weekly-review?week=${reviewWeekDate}`);
                       }}
-                      aria-label="주간 회고 보기"
+                      aria-label="주간 정리 보기"
                     >
                       ✓ 회고
                     </button>
@@ -191,7 +191,7 @@ export function CalendarGrid({
                         e.stopPropagation();
                         navigate(`/weekly-review?week=${reviewWeekDate}`);
                       }}
-                      aria-label="주간 회고 작성하기"
+                      aria-label="주간 정리 작성하기"
                     >
                       + 회고
                     </button>

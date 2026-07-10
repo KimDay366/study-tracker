@@ -38,7 +38,7 @@ export function useWeeklyReview(weekStartDate: string) {
   });
 }
 
-/** 주간 회고 저장(upsert). 성공 시 해당 주 캐시를 갱신. */
+/** 주간 정리 저장(upsert). 성공 시 해당 주 캐시를 갱신. */
 export function useUpsertWeeklyReview() {
   const qc = useQueryClient();
   return useMutation({

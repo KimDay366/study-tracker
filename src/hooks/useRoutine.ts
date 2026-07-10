@@ -9,7 +9,7 @@ export interface RoutineBannerInfo {
 }
 
 export interface UseRoutineResult {
-  /** D-5 우선순위 로직으로 결정된 selectedLogicId (null이면 온보딩 유도) */
+  /** D-5 우선순위 플랜으로 결정된 selectedLogicId (null이면 온보딩 유도) */
   resolvedLogicId: string | null;
   banner: RoutineBannerInfo;
   todayRoutine: RoutineSetting['days'][string] | null;
@@ -30,7 +30,7 @@ function isTimePassed(routineTime: string): boolean {
 
 /**
  * D-5 루틴 우선순위 정책 구현
- * 1순위: 오늘 요일 루틴 활성 + logicId 지정 → 해당 로직
+ * 1순위: 오늘 요일 루틴 활성 + logicId 지정 → 해당 플랜
  * 2순위: 오늘 요일 루틴 활성 + logicId null → lastUsedLogicId
  * 3순위: 오늘 요일 루틴 비활성 → lastUsedLogicId
  * 4순위: lastUsedLogicId null → null (온보딩 유도)
@@ -48,7 +48,7 @@ export function resolveRoutineLogic(params: {
   const todayRoutine = routine?.days[dowKey] ?? null;
   const noBanner: RoutineBannerInfo = { type: 'none' };
 
-  // 오늘 이미 공부 기록 있으면 배너 미표시, 기존 로직 유지
+  // 오늘 이미 공부 기록 있으면 배너 미표시, 기존 플랜 유지
   if (hasExistingRecord) {
     return { resolvedLogicId: lastUsedLogicId, banner: noBanner, todayRoutine };
   }
@@ -70,7 +70,7 @@ export function resolveRoutineLogic(params: {
         todayRoutine,
       };
     }
-    // 루틴 지정 로직이 삭제된 경우 → 3순위로 폴백
+    // 루틴 지정 플랜이 삭제된 경우 → 3순위로 폴백
     const fallback = logics.find(l => l.id === lastUsedLogicId) ? lastUsedLogicId : null;
     return {
       resolvedLogicId: fallback,
@@ -106,9 +106,9 @@ export function getRoutineBannerText(banner: RoutineBannerInfo): string {
     case 'routine-time-passed':
       return `[${banner.logicName}] 루틴 시간(${banner.time})이 지났어요. 지금 시작해 볼까요?`;
     case 'routine-no-logic':
-      return '오늘 루틴 시간이에요. 로직을 선택해 주세요.';
+      return '오늘 루틴 시간이에요. 플랜을 선택해 주세요.';
     case 'routine-deleted':
-      return '루틴에 설정된 로직이 삭제됐어요. 루틴을 다시 설정해 주세요.';
+      return '루틴에 설정된 플랜이 삭제됐어요. 루틴을 다시 설정해 주세요.';
     default:
       return '';
   }

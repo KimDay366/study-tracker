@@ -5,8 +5,8 @@ import styles from './BottomNav.module.css';
 const NAV_ITEMS = [
   { path: '/', label: '오늘' },
   { path: '/calendar', label: '달력' },
-  { path: '/weekly-review', label: '회고' },
-  { path: '/logics', label: '로직' },
+  { path: '/weekly-review', label: '정리' },
+  { path: '/logics', label: '플랜' },
   { path: '/settings', label: '설정' },
 ] as const;
 
@@ -24,7 +24,7 @@ export function BottomNav() {
             <span>
               {label}
               {path === '/weekly-review' && showReviewBadge && (
-                <span className={styles.navBadge} aria-label="이번 주 회고를 작성해 보세요!" />
+                <span className={styles.navBadge} aria-label="이번 주 정리를 작성해 보세요!" />
               )}
             </span>
           </NavLink>

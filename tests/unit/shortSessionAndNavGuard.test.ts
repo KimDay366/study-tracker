@@ -1,9 +1,9 @@
 /**
  * 기능 2: 1분 미만 미저장 정책 및 자정 분리 구간 판정 회귀 테스트
  *
- * - handleStop의 1분 미만 분기 조건 (순수 로직)
+ * - handleStop의 1분 미만 분기 조건 (순수 플랜)
  * - 자정 분리 시 각 구간(prevDur/todayDur)이 1분 미만이면 저장 대상 제외
- * - 기능 1: useBlocker 기반 네비게이션 가드는 UI 통합 없이 활성화 조건 로직만 검증
+ * - 기능 1: useBlocker 기반 네비게이션 가드는 UI 통합 없이 활성화 조건 플랜만 검증
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { calcDurationMinutes, getLocalMidnight } from '@/lib/calculator/timer';
@@ -53,7 +53,7 @@ describe('1분 미만 미저장 정책 — durationMinutes 판정', () => {
 // ──────────────────────────────────────────────
 describe('자정 분리 구간 판정 — 1분 미만이면 조용히 누락', () => {
   /**
-   * 자정 분리 로직의 핵심 판정식:
+   * 자정 분리 플랜의 핵심 판정식:
    *   prevDur = calcDurationMinutes(start, midnight - 1)
    *   todayDur = calcDurationMinutes(midnight, now)
    *   → 각각 >= 1이어야 저장 대상
@@ -184,12 +184,12 @@ describe('일시정지 포함 자정 분리 — getElapsedMs 기준으로 전날
 });
 
 // ──────────────────────────────────────────────
-// 기능 1 — 이탈 가드 활성화 조건 (순수 로직)
+// 기능 1 — 이탈 가드 활성화 조건 (순수 플랜)
 // ──────────────────────────────────────────────
 describe('이탈 가드 활성화 조건 — isTimerActive', () => {
   /**
    * useBlocker(isTimerActive) 에서 isTimerActive = timerStatus !== 'idle'
-   * UI 통합 없이 조건 로직만 검증
+   * UI 통합 없이 조건 플랜만 검증
    */
   type TimerStatus = 'idle' | 'running' | 'paused';
 

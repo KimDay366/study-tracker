@@ -1,5 +1,5 @@
 /**
- * 방향① — 카테고리별 분(minutes)으로 전체 합산 및 퍼센트 계산
+ * 방향① — 활동별 분(minutes)으로 전체 합산 및 퍼센트 계산
  * @returns { totalMinutes, percents } percents는 categoryId 순서대로
  */
 export function calcFromCategoryMinutes(
@@ -9,7 +9,7 @@ export function calcFromCategoryMinutes(
   if (totalMinutes === 0) {
     return { totalMinutes: 0, percents: categoryMinutes.map(() => 0) };
   }
-  // 마지막 카테고리에 잔여 퍼센트 배분 (부동소수점 오차 방지)
+  // 마지막 활동에 잔여 퍼센트 배분 (부동소수점 오차 방지)
   const percents: number[] = [];
   let sumPercent = 0;
   for (let i = 0; i < categoryMinutes.length; i++) {
@@ -26,8 +26,8 @@ export function calcFromCategoryMinutes(
 }
 
 /**
- * 방향② — 전체 분과 퍼센트 배열로 카테고리별 분 계산
- * 잔여 분은 마지막 카테고리에 배분, 최소 1분 보장
+ * 방향② — 전체 분과 퍼센트 배열로 활동별 분 계산
+ * 잔여 분은 마지막 활동에 배분, 최소 1분 보장
  */
 export function calcFromTotalMinutes(
   totalMinutes: number,

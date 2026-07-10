@@ -14,9 +14,9 @@ interface Props {
   onEditSession?: (sess: Session) => void;
   onDeleteSession?: (sess: Session) => void;
   onAddSession?: () => void;
-  /** 지금 "기록 직접 추가"를 누르면 어느 로직에 들어가는지 — 아직 안 골랐으면 null */
+  /** 지금 "기록 직접 추가"를 누르면 어느 플랜에 들어가는지 — 아직 안 골랐으면 null */
   addLogicName?: string | null;
-  /** 로직이 여러 개일 때만 전달 — 이미 고른 로직을 바꾸고 싶을 때 로직 선택 화면을 다시 연다 */
+  /** 플랜이 여러 개일 때만 전달 — 이미 고른 플랜을 바꾸고 싶을 때 플랜 선택 화면을 다시 연다 */
   onChangeAddLogic?: () => void;
 }
 
@@ -45,12 +45,12 @@ export function DayDetail({
   const dateLabel = formatDateLabel(date);
   const groups = info?.groups ?? [];
 
-  // 총 달성률 — 그날 로직들을 "각 100%로 캡한 뒤 평균"한다(실제분/목표분 합산이 아님).
-  // 합산 방식이면 초과 달성 로직(예: 120%)의 초과분이 미달 로직을 상쇄해 부풀려지므로,
-  // 로직별 "로직 달성률"(그룹 totalAchievementPercent, 120% 등 캡 없이 그대로)과 달리 여기서만 캡-평균을 쓴다.
+  // 총 달성률 — 그날 플랜들을 "각 100%로 캡한 뒤 평균"한다(실제분/목표분 합산이 아님).
+  // 합산 방식이면 초과 달성 플랜(예: 120%)의 초과분이 미달 플랜을 상쇄해 부풀려지므로,
+  // 플랜별 "플랜 달성률"(그룹 totalAchievementPercent, 120% 등 캡 없이 그대로)과 달리 여기서만 캡-평균을 쓴다.
   const dayAchievementPercent = capAveragePercent(groups.map((g) => g.totalAchievementPercent));
 
-  // 토글 상태 key는 그룹(로직) + 카테고리로 구성 — 하루에 로직이 여럿이어도 서로 독립적으로 열고 닫힌다.
+  // 토글 상태 key는 그룹(플랜) + 활동으로 구성 — 하루에 플랜이 여럿이어도 서로 독립적으로 열고 닫힌다.
   function toggleSession(key: string) {
     setOpenSessions((prev) => {
       const next = new Set(prev);
@@ -68,7 +68,7 @@ export function DayDetail({
           <span className={styles.dateTitle}>{dateLabel}</span>
           {isToday && <span className={styles.todayBadge}>✏ 오늘</span>}
         </div>
-        {/* 총 달성률 — 그날 기록된 모든 로직을 합산한 하루 종합 달성률 (로직별 "로직 달성률"과는 별개) */}
+        {/* 총 달성률 — 그날 기록된 모든 플랜을 합산한 하루 종합 달성률 (플랜별 "플랜 달성률"과는 별개) */}
         {groups.length > 0 && (
           <div className={styles.dayTotalRow}>
             <span className={styles.dayTotalLabel}>총 달성률</span>
@@ -83,7 +83,7 @@ export function DayDetail({
           {isFuture ? '아직 기록이 없어요.' : '이 날은 공부 기록이 없어요.'}
         </div>
       ) : (
-        // 로직 그룹마다 섹션 반복 렌더링 (다중 로직 대응) — 그룹별로 달성률·뱃지·카테고리 카드를 독립적으로 표시
+        // 플랜 그룹마다 섹션 반복 렌더링 (다중 플랜 대응) — 그룹별로 달성률·뱃지·활동 카드를 독립적으로 표시
         groups.map((group) => {
           const record = group.record;
           const snap = record.logicSnapshot;
@@ -93,13 +93,13 @@ export function DayDetail({
           return (
             <div key={groupKey} className={styles.groupSection}>
               <div className={styles.groupHeader}>
-                <span className={styles.groupHeaderTitle}>{snap.name ?? '[삭제된 로직]'}</span>
+                <span className={styles.groupHeaderTitle}>{snap.name ?? '[삭제된 플랜]'}</span>
               </div>
 
-              {/* ① 로직 달성률 (이 로직 그룹 하나만의 달성률 — 하루 종합인 "총 달성률"과는 다름) */}
+              {/* ① 플랜 달성률 (이 플랜 그룹 하나만의 달성률 — 하루 종합인 "총 달성률"과는 다름) */}
               <div className={styles.summaryBlock}>
                 <div className={styles.totalRow}>
-                  <span className={styles.totalLabel}>로직 달성률</span>
+                  <span className={styles.totalLabel}>플랜 달성률</span>
                   <span className={styles.totalPct}>{totalAchievementPercent.toFixed(1)}%</span>
                 </div>
                 <div className={styles.hearts}>
@@ -123,14 +123,14 @@ export function DayDetail({
                     {rainbowStar && (
                       <span className={styles.rainbowBadgeChip}>
                         <span className={styles.chipIcon}>★</span>
-                        <span className={styles.chipText}>전체 카테고리 달성 100%</span>
+                        <span className={styles.chipText}>전체 활동 달성 100%</span>
                       </span>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* ③ 카테고리별 달성률 카드 */}
+              {/* ③ 활동별 달성률 카드 */}
               <div className={styles.categoryList}>
                 {snap.categories.map((cat, idx) => {
                   const catPct = categoryPercents[idx] ?? 0;
@@ -210,7 +210,7 @@ export function DayDetail({
                               )}
                             </div>
                           ))}
-                          {/* 같은 카테고리 2회 이상: 합계 표기 */}
+                          {/* 같은 활동 2회 이상: 합계 표기 */}
                           {catSessions.length >= 2 && (
                             <div className={styles.sessionSubtotal}>
                               <span className={styles.subtotalLabel}>{cat.name} 합계</span>
@@ -228,13 +228,13 @@ export function DayDetail({
         })
       )}
 
-      {/* 이번 주 편집 가능한 날짜(오늘 포함)만: 기록 직접 추가 — 어느 로직에 추가되는지 항상 명확히 보여준다 */}
+      {/* 이번 주 편집 가능한 날짜(오늘 포함)만: 기록 직접 추가 — 어느 플랜에 추가되는지 항상 명확히 보여준다 */}
       {onAddSession && (
         <div className={styles.addLogicSection}>
           {addLogicName && (
             <div className={styles.addLogicRow}>
               <span className={styles.addLogicText}>
-                추가 대상 로직: <strong>{addLogicName}</strong>
+                추가 대상 플랜: <strong>{addLogicName}</strong>
               </span>
               {onChangeAddLogic && (
                 <button

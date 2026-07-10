@@ -11,7 +11,7 @@ function getThisWeekSunday(): string {
 
 /**
  * 일요일이면서 이번 주 회고가 아직 저장되지 않은 경우 true.
- * 내비게이션의 "주간 회고" 항목에 작성 유도 배지를 노출하는 데 사용한다.
+ * 내비게이션의 "주간 정리" 항목에 작성 유도 배지를 노출하는 데 사용한다.
  * (React Query가 창 포커스 시 자동 재조회 → 회고 저장 후 배지 자동 해제)
  */
 export function useWeeklyReviewBadge(): boolean {

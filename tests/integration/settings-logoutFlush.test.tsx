@@ -39,7 +39,7 @@ function makeEntry(localId: string): FailedSessionEntry {
       source: 'timer',
       logicId: 'logic-1',
       logicSnapshot: {
-        name: '테스트 로직',
+        name: '테스트 플랜',
         totalTargetMinutes: 60,
         categories: [
           { id: 'cat-1', name: '수학', colorVar: '--cat-color-01', targetMinutes: 60, targetPercent: 100 },

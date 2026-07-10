@@ -41,7 +41,7 @@ export function AppShell({ children }: Props) {
     setOnboardingDismissed(true);
   };
 
-  // SCR-03 로직 편집: 모바일/태블릿은 셸(SideNav/BottomNav) 미적용, PC(1200px+)는 SideNav와 공존
+  // SCR-03 플랜 편집: 모바일/태블릿은 셸(SideNav/BottomNav) 미적용, PC(1200px+)는 SideNav와 공존
   const isLogicEditPage = location.pathname.startsWith('/logics/') || location.pathname === '/logics/new';
 
   const onboardingDialog = showOnboarding && (
@@ -56,7 +56,7 @@ export function AppShell({ children }: Props) {
     />
   );
 
-  // 모바일/태블릿에서는 로직 편집이 여전히 셸 없는 집중 화면 (기존 동작 유지)
+  // 모바일/태블릿에서는 플랜 편집이 여전히 셸 없는 집중 화면 (기존 동작 유지)
   if (isLogicEditPage && !isPC) {
     return <>{onboardingDialog}{children}</>;
   }
@@ -75,7 +75,7 @@ export function AppShell({ children }: Props) {
             </span>
           </div>
         )}
-        {/* 로직 편집 페이지(PC): 자체 앱바가 edge-to-edge로 보이도록 mainContent의 기본 패딩을 제거 */}
+        {/* 플랜 편집 페이지(PC): 자체 앱바가 edge-to-edge로 보이도록 mainContent의 기본 패딩을 제거 */}
         <main className={`${styles.mainContent}${isLogicEditPage ? ` ${styles.mainContentFlush}` : ''}`}>
           {children}
         </main>

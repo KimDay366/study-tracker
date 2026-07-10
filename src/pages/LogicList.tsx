@@ -31,7 +31,7 @@ export function LogicList() {
 
   function handleAddSlotClick() {
     if (isFull) {
-      showToast('로직은 최대 5개까지 만들 수 있어요.', 'warning');
+      showToast('플랜은 최대 5개까지 만들 수 있어요.', 'warning');
       return;
     }
     navigate('/logics/new');
@@ -50,7 +50,7 @@ export function LogicList() {
     if (!deleteTarget) return;
     try {
       await deleteLogic.mutateAsync(deleteTarget.id);
-      showToast(`'${deleteTarget.name}' 로직을 삭제했어요.`, 'default');
+      showToast(`'${deleteTarget.name}' 플랜을 삭제했어요.`, 'default');
     } catch {
       showToast('삭제 중 오류가 발생했어요.', 'danger');
     } finally {
@@ -64,13 +64,13 @@ export function LogicList() {
     <>
       {/* 모바일/태블릿 앱바 */}
       <header className={styles.mobileAppBar}>
-        <span className={styles.mobileAppBarTitle}>로직 관리</span>
+        <span className={styles.mobileAppBarTitle}>플랜 관리</span>
         <span className={styles.mobileAppBarMeta}>{count} / {MAX_LOGICS}개</span>
       </header>
 
       {/* PC 전용 헤더 */}
       <div className={styles.pcHeader}>
-        <h1 className={styles.pcHeaderTitle}>로직 관리</h1>
+        <h1 className={styles.pcHeaderTitle}>플랜 관리</h1>
         <span className={styles.pcHeaderMeta}>{count} / {MAX_LOGICS}개</span>
       </div>
 
@@ -79,7 +79,7 @@ export function LogicList() {
         <div className={styles.infoBanner}>
           <span>💡</span>
           <span>
-            로직은 최대 <strong>{MAX_LOGICS}개</strong>까지 만들 수 있어요.
+            플랜은 최대 <strong>{MAX_LOGICS}개</strong>까지 만들 수 있어요.
             카드를 탭하면 수정할 수 있어요.
           </span>
         </div>
@@ -87,7 +87,7 @@ export function LogicList() {
         {/* 로딩 */}
         {isLoading && (
           <div className={styles.emptyState}>
-            <div className={styles.emptyDesc}>로직을 불러오는 중...</div>
+            <div className={styles.emptyDesc}>플랜을 불러오는 중...</div>
           </div>
         )}
 
@@ -103,22 +103,22 @@ export function LogicList() {
         {!isLoading && !isError && logics.length === 0 && (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}>📭</div>
-            <div className={styles.emptyTitle}>아직 로직이 없어요</div>
+            <div className={styles.emptyTitle}>아직 플랜이 없어요</div>
             <div className={styles.emptyDesc}>
-              첫 번째 공부 로직을 만들어 보세요!<br />
-              로직에 카테고리와 목표 시간을 설정할 수 있어요.
+              첫 번째 공부 플랜을 만들어 보세요!<br />
+              플랜에 활동과 목표 시간을 설정할 수 있어요.
             </div>
           </div>
         )}
 
-        {/* 로직 그리드 */}
+        {/* 플랜 그리드 */}
         <div className={styles.logicGrid}>
           {logics.map(logic => (
             <button
               key={logic.id}
               className={styles.logicCard}
               onClick={() => handleCardClick(logic)}
-              aria-label={`${logic.name} 로직 수정`}
+              aria-label={`${logic.name} 플랜 수정`}
             >
               <div className={styles.logicCardHeader}>
                 <div className={styles.logicCardName}>{logic.name}</div>
@@ -130,7 +130,7 @@ export function LogicList() {
               <div className={styles.logicCardMeta}>
                 <div className={styles.logicCardMetaItem}>
                   <span>📂</span>
-                  <span>카테고리 {logic.categories.length}개</span>
+                  <span>활동 {logic.categories.length}개</span>
                 </div>
                 <div className={styles.logicCardMetaItem}>
                   <span>⏱</span>
@@ -169,18 +169,18 @@ export function LogicList() {
             </button>
           ))}
 
-          {/* 로직 추가 슬롯 */}
+          {/* 플랜 추가 슬롯 */}
           {!isLoading && !isError && (
             <button
               className={`${styles.logicAddSlot}${isFull ? ` ${styles.slotDisabled}` : ''}`}
               onClick={handleAddSlotClick}
-              aria-label={isFull ? '로직 추가 불가 (최대 5개)' : '로직 추가'}
+              aria-label={isFull ? '플랜 추가 불가 (최대 5개)' : '플랜 추가'}
               aria-disabled={isFull}
             >
               <div className={styles.slotInner}>
                 <div className={styles.slotIcon}>+</div>
                 <div className={styles.slotLabel}>
-                  {isFull ? '로직 추가 불가' : '로직 추가'}
+                  {isFull ? '플랜 추가 불가' : '플랜 추가'}
                 </div>
                 <div className={styles.slotSub}>
                   {isFull ? '최대 5개 도달' : `슬롯 여유 ${MAX_LOGICS - count}개`}
@@ -195,8 +195,8 @@ export function LogicList() {
       {deleteTarget && (
         <Dialog
           icon="🗑️"
-          title="로직을 삭제할까요?"
-          description={`'${deleteTarget.name}' 로직을 삭제하면 이 로직의 설정이 사라져요. 기존 공부 기록은 유지돼요.${isCurrentlyUsed(deleteTarget) ? '\n\n현재 오늘의 공부에 사용 중인 로직이에요.' : ''}`}
+          title="플랜을 삭제할까요?"
+          description={`'${deleteTarget.name}' 플랜을 삭제하면 이 플랜의 설정이 사라져요. 기존 공부 기록은 유지돼요.${isCurrentlyUsed(deleteTarget) ? '\n\n현재 오늘의 공부에 사용 중인 플랜이에요.' : ''}`}
           cancelLabel="취소"
           confirmLabel="삭제"
           confirmVariant="danger"

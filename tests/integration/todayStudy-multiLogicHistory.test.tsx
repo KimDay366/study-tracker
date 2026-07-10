@@ -1,14 +1,14 @@
 /**
- * 다중 로직 대응 회귀 테스트 (F6)
+ * 다중 플랜 대응 회귀 테스트 (F6)
  *
  * 버그 배경(설계 문서 multi-logic-redesign.md §0, TodayStudy.tsx 구 L860):
- *   기존 코드는 "오늘 세션 내역"에서 세션의 카테고리명을 찾을 때
- *   `selectedLogic.categories.find(c => c.id === sess.categoryId)` — 즉 "현재 화면에 선택된 로직"
- *   기준으로 찾았다. 하루 중 로직을 바꾸면 이전 로직으로 기록한 세션은 카테고리를 찾지 못해
+ *   기존 코드는 "오늘 세션 내역"에서 세션의 활동명을 찾을 때
+ *   `selectedLogic.categories.find(c => c.id === sess.categoryId)` — 즉 "현재 화면에 선택된 플랜"
+ *   기준으로 찾았다. 하루 중 플랜을 바꾸면 이전 플랜으로 기록한 세션은 활동을 찾지 못해
  *   '알 수 없음'으로 표시됐다.
  *
- * 수정 후에는 각 세션이 실제로 속한 로직 그룹 자신의 logicSnapshot.categories에서 찾으므로,
- * 로직을 바꾼 뒤에도 과거 세션이 자기 로직 이름으로 정확히 표시되어야 한다.
+ * 수정 후에는 각 세션이 실제로 속한 플랜 그룹 자신의 logicSnapshot.categories에서 찾으므로,
+ * 플랜을 바꾼 뒤에도 과거 세션이 자기 플랜 이름으로 정확히 표시되어야 한다.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
@@ -42,7 +42,7 @@ const LOGIC_B: StudyLogic = {
   updatedAt: '2026-07-01T00:00:00.000Z',
 };
 
-/** 오늘 오전엔 로직 B로 공부하다가, 오후에 로직 A로 전환한 상황을 재현 */
+/** 오늘 오전엔 플랜 B로 공부하다가, 오후에 플랜 A로 전환한 상황을 재현 */
 const RECORD_B: DailyRecord = {
   date: '2026-07-07',
   logicId: 'logic-b',
@@ -122,7 +122,7 @@ beforeEach(() => {
   sessionStorage.clear();
   useTimerStore.getState().resetTimer();
   useUIStore.setState({ toasts: [] });
-  // 현재 화면에서 선택된 로직 = A (오늘 나중에 전환한 로직)
+  // 현재 화면에서 선택된 플랜 = A (오늘 나중에 전환한 플랜)
   useTodayStore.setState({ selectedLogicId: 'logic-a' });
   mockUseDailyRecord.mockReturnValue({ data: [RECORD_B, RECORD_A] });
 
@@ -141,22 +141,22 @@ beforeEach(() => {
   });
 });
 
-describe('다중 로직 대응 — 오늘 세션 내역 그룹화 (F4 회귀 방지)', () => {
-  it('로직을 바꾼 뒤에도 이전 로직 세션이 "알 수 없음"이 아니라 자기 로직의 카테고리명으로 표시된다', () => {
+describe('다중 플랜 대응 — 오늘 세션 내역 그룹화 (F4 회귀 방지)', () => {
+  it('플랜을 바꾼 뒤에도 이전 플랜 세션이 "알 수 없음"이 아니라 자기 플랜의 활동명으로 표시된다', () => {
     renderTodayStudy();
 
-    // "오늘 세션 내역" 영역으로 스코프 — 상단 로직 선택기·카테고리 선택 섹션과 텍스트가 겹치지 않도록.
+    // "오늘 세션 내역" 영역으로 스코프 — 상단 플랜 선택기·활동 선택 섹션과 텍스트가 겹치지 않도록.
     const history = within(screen.getByRole('region', { name: '오늘 기록 내역' }));
 
     // 버그 회귀 방지 핵심 단언: '알 수 없음'이 화면에 없어야 한다.
     expect(history.queryByText('알 수 없음')).toBeNull();
 
-    // 오전 로직(B)의 세션은 B의 카테고리명 '영어B'로, 오후 로직(A)의 세션은 A의 카테고리명 '국어A'로 표시된다.
+    // 오전 플랜(B)의 세션은 B의 활동명 '영어B'로, 오후 플랜(A)의 세션은 A의 활동명 '국어A'로 표시된다.
     expect(history.getByText('영어B')).toBeDefined();
     expect(history.getByText('국어A')).toBeDefined();
   });
 
-  it('오늘 로직이 2개 이상이면 그룹 헤더로 로직명을 각각 나눠 보여준다', () => {
+  it('오늘 플랜이 2개 이상이면 그룹 헤더로 플랜명을 각각 나눠 보여준다', () => {
     renderTodayStudy();
 
     const history = within(screen.getByRole('region', { name: '오늘 기록 내역' }));
@@ -164,9 +164,9 @@ describe('다중 로직 대응 — 오늘 세션 내역 그룹화 (F4 회귀 방
     expect(history.getByText('내신 대비')).toBeDefined();
   });
 
-  it('오늘 로직이 1개뿐이어도 그룹 헤더에 로직명이 펼치기 없이 상시 표시된다', () => {
-    // 요구사항(2026-07-07 메인 페이지 UI 개선): 로직이 1개뿐인 흔한 케이스에서도
-    // 그룹 헤더는 항상 보여야 한다(과거엔 로직이 2개 이상일 때만 표시됐음).
+  it('오늘 플랜이 1개뿐이어도 그룹 헤더에 플랜명이 펼치기 없이 상시 표시된다', () => {
+    // 요구사항(2026-07-07 메인 페이지 UI 개선): 플랜이 1개뿐인 흔한 케이스에서도
+    // 그룹 헤더는 항상 보여야 한다(과거엔 플랜이 2개 이상일 때만 표시됐음).
     mockUseDailyRecord.mockReturnValue({ data: [RECORD_A] });
     useTodayStore.setState({ selectedLogicId: 'logic-a' });
 

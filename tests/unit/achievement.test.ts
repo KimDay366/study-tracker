@@ -71,7 +71,7 @@ describe('calcFilledHearts', () => {
   });
 });
 
-describe('capAveragePercent — 여러 로직 종합(총/월 달성률)용 캡-평균', () => {
+describe('capAveragePercent — 여러 플랜 종합(총/월 달성률)용 캡-평균', () => {
   it('50/120/60 → 각 100%로 캡한 뒤 평균 = 70 (초과분이 미달분을 상쇄하지 않음)', () => {
     expect(capAveragePercent([50, 120, 60])).toBe(70);
   });

@@ -65,7 +65,7 @@ describe('clearSessionAndCache — 계정 격리 3종 세트', () => {
     const qc = new QueryClient();
     // 캐시에 A 계정 데이터를 직접 심는다
     qc.setQueryData(['settings'], { nickname: '계정A', firstLaunchDate: '2026-01-01' });
-    qc.setQueryData(['logics'], [{ id: '1', name: '로직1' }]);
+    qc.setQueryData(['logics'], [{ id: '1', name: '플랜1' }]);
 
     expect(qc.getQueryCache().getAll()).toHaveLength(2);
 

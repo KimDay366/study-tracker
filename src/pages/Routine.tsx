@@ -75,13 +75,13 @@ function RoutineRowItem({ dow, day, logics, onChange, timeError }: RoutineRowPro
             value={day.logicId ?? ''}
             disabled={!day.enabled}
             onChange={e => onChange(dow, { logicId: e.target.value || null })}
-            aria-label={`${dayName}요일 로직 선택`}
+            aria-label={`${dayName}요일 플랜 선택`}
           >
             {logics.length === 0 ? (
-              <option value="" disabled>먼저 로직을 만들어 주세요.</option>
+              <option value="" disabled>먼저 플랜을 만들어 주세요.</option>
             ) : (
               <>
-                <option value="">로직 미지정 (최근 사용 로직 자동 적용)</option>
+                <option value="">플랜 미지정 (최근 사용 플랜 자동 적용)</option>
                 {logics.map(l => (
                   <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
@@ -168,7 +168,7 @@ export function Routine() {
             <span>요일</span>
             <span>활성</span>
             <span>시간</span>
-            <span>로직</span>
+            <span>플랜</span>
           </div>
 
           {Array.from({ length: 7 }, (_, i) => (

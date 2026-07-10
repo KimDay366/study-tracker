@@ -14,7 +14,7 @@ import { isSameLocalDate, getLocalMidnight, calcDurationMinutes } from '@/lib/ca
 import type { StudyLogic, RoutineSetting } from '@/types';
 
 // ==============================
-// D-3 이분법 하트 계산 (WeeklyReview HeartRow와 동일 로직)
+// D-3 이분법 하트 계산 (WeeklyReview HeartRow와 동일 플랜)
 // fullHearts = Math.floor(pct / 10)
 // emptyHearts = 10 - fullHearts
 // ==============================
@@ -118,7 +118,7 @@ describe('D-5 루틴 우선순위 — resolveRoutineLogic', () => {
     vi.useRealTimers();
   });
 
-  it('1순위: 오늘 요일 루틴 활성+로직 지정 → 해당 로직, banner=routine-match', () => {
+  it('1순위: 오늘 요일 루틴 활성+플랜 지정 → 해당 플랜, banner=routine-match', () => {
     const routine: RoutineSetting = {
       days: { '1': makeDayRoutine(true, 'logic-a', '08:30') },
       updatedAt: '2026-06-15T00:00:00.000Z',
@@ -149,7 +149,7 @@ describe('D-5 루틴 우선순위 — resolveRoutineLogic', () => {
     expect(result.banner.type).toBe('routine-match');
   });
 
-  it('2순위: 루틴 활성+로직 null → lastUsedLogicId, banner=routine-no-logic', () => {
+  it('2순위: 루틴 활성+플랜 null → lastUsedLogicId, banner=routine-no-logic', () => {
     const routine: RoutineSetting = {
       days: { '1': makeDayRoutine(true, null, '08:30') },
       updatedAt: '2026-06-15T00:00:00.000Z',
@@ -197,11 +197,11 @@ describe('D-5 루틴 우선순위 — resolveRoutineLogic', () => {
       lastUsedLogicId: 'logic-b',
       hasExistingRecord: true, // 이미 공부 시작함
     });
-    expect(result.resolvedLogicId).toBe('logic-b'); // 기존 로직 유지
+    expect(result.resolvedLogicId).toBe('logic-b'); // 기존 플랜 유지
     expect(result.banner.type).toBe('none');
   });
 
-  it('경계: 루틴 지정 로직 삭제됨 → routine-deleted', () => {
+  it('경계: 루틴 지정 플랜 삭제됨 → routine-deleted', () => {
     const routine: RoutineSetting = {
       days: { '1': makeDayRoutine(true, 'deleted-logic', '08:30') },
       updatedAt: '2026-06-15T00:00:00.000Z',
@@ -286,7 +286,7 @@ describe('D-7 스토리지 용량 계산', () => {
 // pledge 단독 판단: 비어있으면 랜덤 명언 고정, 입력 시 그대로
 // ==============================
 
-/** handleSave 내 pledge 결정 로직 추출 (순수 함수로 테스트) */
+/** handleSave 내 pledge 결정 플랜 추출 (순수 함수로 테스트) */
 function resolvePledge(pledge: string): {
   pledgeText: string;
   usedBuiltinQuote: boolean;
@@ -341,7 +341,7 @@ describe('MAJ-04 한줄다짐 저장 조건 — pledge 단독 판단', () => {
     expect(result.pledgeText).toBe(quoteText);
   });
 
-  it('pledge 200자 최대 (입력 필드 제한은 UI 레벨, 로직 레벨 trim만)', () => {
+  it('pledge 200자 최대 (입력 필드 제한은 UI 레벨, 플랜 레벨 trim만)', () => {
     const longPledge = 'a'.repeat(200);
     const result = resolvePledge(longPledge);
     expect(result.pledgeText).toBe(longPledge);
@@ -391,11 +391,11 @@ describe('CRIT-01 보강 — 일시정지 중 자정 경과', () => {
 });
 
 // ==============================
-// MAJ-NEW-01 회귀 — 기존 회고 재접근 시 pledge 복원 정책
+// MAJ-NEW-01 회귀 — 기존 주간 정리 재접근 시 pledge 복원 정책
 // setPledge(existing.pledge) — usedBuiltinQuote 무관하게 항상 복원
 // ==============================
 
-/** useEffect 내 pledge 초기화 로직 추출 (순수 함수로 테스트) */
+/** useEffect 내 pledge 초기화 플랜 추출 (순수 함수로 테스트) */
 function restorePledge(existing: {
   pledge: string;
   usedBuiltinQuote: boolean;
@@ -405,7 +405,7 @@ function restorePledge(existing: {
   return existing.pledge;
 }
 
-describe('MAJ-NEW-01 회귀 — 기존 회고 재접근 시 pledge 복원 정책', () => {
+describe('MAJ-NEW-01 회귀 — 기존 주간 정리 재접근 시 pledge 복원 정책', () => {
   it('직접 입력 저장 → 재접근 시 pledge 그대로 복원', () => {
     const existing = { pledge: '매일 한 시간 집중하기', usedBuiltinQuote: false };
     expect(restorePledge(existing)).toBe('매일 한 시간 집중하기');
@@ -442,7 +442,7 @@ describe('MAJ-NEW-01 회귀 — 기존 회고 재접근 시 pledge 복원 정책
     expect(reSave.pledgeText).toBe(savedPledge); // 새 랜덤 명언으로 덮어쓰기 없음
   });
 
-  it('기존 회고 없음(새 주) → pledge 빈 문자열 반환', () => {
+  it('기존 주간 정리 없음(새 주) → pledge 빈 문자열 반환', () => {
     expect(restorePledge(null)).toBe('');
   });
 });

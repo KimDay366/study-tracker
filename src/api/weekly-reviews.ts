@@ -2,7 +2,7 @@ import axios from 'axios';
 import { apiClient } from './client';
 import type { WeeklyReview } from '@/types';
 
-/** 주간 회고 upsert 요청 본문 (서버 WeeklyReviewUpsertSchema 대응). */
+/** 주간 정리 upsert 요청 본문 (서버 WeeklyReviewUpsertSchema 대응). */
 export interface WeeklyReviewUpsertInput {
   keep: string;
   problem: string;
@@ -23,7 +23,7 @@ export async function fetchWeeklyReview(weekStartDate: string): Promise<WeeklyRe
   }
 }
 
-/** 주간 회고 저장(신규/수정 upsert). */
+/** 주간 정리 저장(신규/수정 upsert). */
 export async function upsertWeeklyReview(
   weekStartDate: string,
   body: WeeklyReviewUpsertInput,

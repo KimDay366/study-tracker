@@ -133,9 +133,9 @@ export function SessionModal({
 
   return (
     <Modal title={mode === 'edit' ? '기록 수정' : '기록 추가'} onClose={onClose}>
-      {/* 카테고리 */}
+      {/* 활동 */}
       <div className={styles.formGroup}>
-        <label className={styles.label}>카테고리</label>
+        <label className={styles.label}>활동</label>
         <select
           className={styles.categorySelect}
           value={categoryId}

@@ -3,32 +3,32 @@ import type { DailyRecord, Session } from '@/types';
 import { calcAchievementPercent, capAveragePercent } from '@/lib/calculator/achievement';
 
 /**
- * 하루 안의 로직 그룹 하나(=daily_records 한 행)에 대한 집계.
+ * 하루 안의 플랜 그룹 하나(=daily_records 한 행)에 대한 집계.
  * 달성률/무지개 뱃지는 항상 이 그룹 스코프 안에서만 계산된다(그룹 간 합산 없음, §8-1 정책).
  */
 export interface CalendarGroupInfo {
   record: DailyRecord;
   totalMinutes: number;
   totalAchievementPercent: number;
-  /** 카테고리별 달성률 (index = logicSnapshot.categories 순서) */
+  /** 활동별 달성률 (index = logicSnapshot.categories 순서) */
   categoryPercents: number[];
-  /** 무지개 하트: 이 그룹(로직) 하나의 전체 달성 >= 100% — 달력 셀 하트 배지 카운트(로직 달성 개수)에 사용 */
+  /** 무지개 하트: 이 그룹(플랜) 하나의 전체 달성 >= 100% — 달력 셀 하트 배지 카운트(플랜 달성 개수)에 사용 */
   rainbowHeart: boolean;
-  /** 이 그룹의 모든 카테고리 >= 100% (DayDetail 그룹 요약 배지 전용 — 달력 셀의 무지개 별과는 무관.
+  /** 이 그룹의 모든 활동 >= 100% (DayDetail 그룹 요약 배지 전용 — 달력 셀의 무지개 별과는 무관.
    *  무지개 별은 날짜 단위 판정으로 대체됐다 → CalendarDayInfo.allLogicsAchieved 참고) */
   rainbowStar: boolean;
 }
 
 export interface CalendarDayInfo {
   date: string; // YYYY-MM-DD
-  /** 그 날짜의 로직 그룹들 (하루에 로직을 여러 번 바꾸면 여러 개) */
+  /** 그 날짜의 플랜 그룹들 (하루에 플랜을 여러 번 바꾸면 여러 개) */
   groups: CalendarGroupInfo[];
   /** 그룹들의 공부 시간 합계 (셀 표시·월 통계용. 달성률 판정에는 쓰지 않음) */
   totalMinutes: number;
-  /** 무지개 별: 그날 존재하는 로직 그룹이 하나 이상이고, 그 그룹 전부가 달성(rainbowHeart)일 때만 true.
-   *  로직별 누적이 아니라 "그날의 로직을 모두 달성"했을 때 딱 1개만 켜지는 날짜 단위 판정. */
+  /** 무지개 별: 그날 존재하는 플랜 그룹이 하나 이상이고, 그 그룹 전부가 달성(rainbowHeart)일 때만 true.
+   *  플랜별 누적이 아니라 "그날의 플랜을 모두 달성"했을 때 딱 1개만 켜지는 날짜 단위 판정. */
   allLogicsAchieved: boolean;
-  /** 주간 회고 작성 여부 (일요일 셀 전용, undefined = 일요일 아님) */
+  /** 주간 정리 작성 여부 (일요일 셀 전용, undefined = 일요일 아님) */
   weeklyReviewDone?: boolean;
 }
 
@@ -49,7 +49,7 @@ export interface CalendarCell {
   isSunday: boolean;
   isSaturday: boolean;
   info: CalendarDayInfo | null;
-  /** 일요일(주 마지막 칸)인 경우 해당 주(월~일) 시작일(월요일) — 주간 회고 weekStartDate */
+  /** 일요일(주 마지막 칸)인 경우 해당 주(월~일) 시작일(월요일) — 주간 정리 weekStartDate */
   weekStartDate?: string;
 }
 
@@ -64,7 +64,7 @@ function toYMD(date: Date): string {
  * 해당 월의 달력 셀과 날짜별 집계 정보를 반환하는 hook.
  * 데이터는 호출부(서버 쿼리)에서 recordMap으로 주입받는다. recordMap이 바뀌면 재계산.
  * (세션 추가·수정·삭제 후 React Query 무효화 → 새 recordMap → 즉시 반영)
- * 일요일 주간 회고 완료 여부도 호출부에서 서버 조회해 weeklyReviewDoneDates(Set)로 주입한다.
+ * 일요일 주간 정리 완료 여부도 호출부에서 서버 조회해 weeklyReviewDoneDates(Set)로 주입한다.
  */
 export function useCalendarMonth(
   year: number,
@@ -75,7 +75,7 @@ export function useCalendarMonth(
   return useMemo(() => {
     const today = toYMD(new Date());
 
-    // 하나의 로직 그룹(레코드)에 대한 집계 — 그룹 스코프 안에서만 계산(그룹 간 합산 없음)
+    // 하나의 플랜 그룹(레코드)에 대한 집계 — 그룹 스코프 안에서만 계산(그룹 간 합산 없음)
     function calcGroupInfo(record: DailyRecord): CalendarGroupInfo {
       const cache = record.achievementCache;
       let totalMinutes = 0;
@@ -112,14 +112,14 @@ export function useCalendarMonth(
       return { record, totalMinutes, totalAchievementPercent, categoryPercents, rainbowHeart, rainbowStar };
     }
 
-    // 날짜별 집계 — 같은 날짜에 로직 그룹이 여럿이면 그룹별로 각각 계산해 배열로 보관
+    // 날짜별 집계 — 같은 날짜에 플랜 그룹이 여럿이면 그룹별로 각각 계산해 배열로 보관
     const dayInfoMap = new Map<string, CalendarDayInfo>();
     recordMap.forEach((records, date) => {
-      // 세션(기록)이 있는 로직만 달력에 표시 — 세션 0개 잔존 그룹이 스테일
+      // 세션(기록)이 있는 플랜만 달력에 표시 — 세션 0개 잔존 그룹이 스테일
       // 캐시로 넘어와도 노출되지 않게 방어(백엔드 조회 필터와 이중 안전장치)
       const groups = records.filter((r) => r.sessions.length > 0).map(calcGroupInfo);
       const totalMinutes = groups.reduce((sum, g) => sum + g.totalMinutes, 0);
-      // 무지개 별(신규 규칙): 그날 로직이 하나 이상 있고, 전부 달성(rainbowHeart)일 때만 true.
+      // 무지개 별(신규 규칙): 그날 플랜이 하나 이상 있고, 전부 달성(rainbowHeart)일 때만 true.
       const allLogicsAchieved = groups.length > 0 && groups.every((g) => g.rainbowHeart);
 
       dayInfoMap.set(date, {
@@ -158,7 +158,7 @@ export function useCalendarMonth(
 
       const info = dayInfoMap.get(dateStr) ?? null;
 
-      // 일요일(그 주 마지막 칸) 기준 주간 회고 여부 — 주 시작(월요일) 날짜로 조회 (호출부에서 주입된 서버 데이터)
+      // 일요일(그 주 마지막 칸) 기준 주간 정리 여부 — 주 시작(월요일) 날짜로 조회 (호출부에서 주입된 서버 데이터)
       if (isSunday) {
         const reviewDone = weeklyReviewDoneDates?.has(currentWeekMonday) ?? false;
         if (info) {
@@ -196,7 +196,7 @@ export function useCalendarMonth(
 
     // 월별 통계 — totalMinutes/totalTarget은 표시용("N분/N분") 단순 합계로 그대로 유지.
     // achievementPercent는 날짜 "총 달성률"과 동일하게 그 달 모든 그룹을 각 100%로 캡한 뒤 평균한다
-    // (합산 방식이면 초과 달성 로직이 미달 로직을 상쇄해 부풀려지므로).
+    // (합산 방식이면 초과 달성 플랜이 미달 플랜을 상쇄해 부풀려지므로).
     let monthTotalMinutes = 0;
     let monthTotalTarget = 0;
     const monthGroupPercents: number[] = [];

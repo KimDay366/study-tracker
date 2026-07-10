@@ -74,7 +74,7 @@ export function TodayStudy() {
   // 서버 데이터 훅
   const { data: logics = [] } = useLogics();
   const todayDateStr = getTodayDateString();
-  // 다중 로직 대응: 오늘의 로직 그룹 배열(로직을 바꾸면 그룹이 늘어난다). 빈 배열 = 오늘 기록 없음.
+  // 다중 플랜 대응: 오늘의 플랜 그룹 배열(플랜을 바꾸면 그룹이 늘어난다). 빈 배열 = 오늘 기록 없음.
   const { data: todayRecords = [] } = useDailyRecord(todayDateStr);
   const { data: settingsData } = useSettings();
   const { data: routineData } = useRoutineQuery();
@@ -107,16 +107,16 @@ export function TodayStudy() {
 
   const { date: dateLabel, day: dayLabel } = formatDateLabel(todayDateStr);
 
-  // 선택된 로직
+  // 선택된 플랜
   const selectedLogic = logics.find(l => l.id === selectedLogicId) ?? logics[0] ?? null;
 
-  // 현재 선택된 로직의 오늘 그룹 — 달성률·카테고리 카드는 이 그룹 스코프로만 계산한다(§8-1: 그룹별 계산, 합산 안 함).
-  // 다른 로직으로 전환한 뒤에도 그 로직의 과거 그룹은 todayRecords 안에 별도 원소로 그대로 남아있다.
+  // 현재 선택된 플랜의 오늘 그룹 — 달성률·활동 카드는 이 그룹 스코프로만 계산한다(§8-1: 그룹별 계산, 합산 안 함).
+  // 다른 플랜으로 전환한 뒤에도 그 플랜의 과거 그룹은 todayRecords 안에 별도 원소로 그대로 남아있다.
   const todayGroup = todayRecords.find(r => r.logicId === selectedLogic?.id) ?? null;
-  // 세션 겹침 검사는 로직과 무관하게 그날 전체 세션 기준이어야 한다(같은 시간에 두 로직을 동시에 할 수 없으므로).
+  // 세션 겹침 검사는 플랜과 무관하게 그날 전체 세션 기준이어야 한다(같은 시간에 두 플랜을 동시에 할 수 없으므로).
   const allTodaySessions = todayRecords.flatMap(r => r.sessions);
 
-  // 초기화: 로직 미선택 시 첫 번째 로직 자동 선택
+  // 초기화: 플랜 미선택 시 첫 번째 플랜 자동 선택
   useEffect(() => {
     if (logics.length === 0) return;
     if (!selectedLogicId || !logics.find(l => l.id === selectedLogicId)) {
@@ -281,7 +281,7 @@ export function TodayStudy() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerStatus]);
 
-  // 로직 선택 핸들러
+  // 플랜 선택 핸들러
   const handleSelectLogic = useCallback(async (logicId: string) => {
     if (timerStatus !== 'idle') {
       showToast('타이머가 실행 중이에요. 종료 후 변경해 주세요.', 'warning');
@@ -296,9 +296,9 @@ export function TodayStudy() {
     setSelectorOpen(false);
   }, [timerStatus, showToast, setSelectedLogicId, patchSettingsMutation]);
 
-  // 카테고리 선택 핸들러
+  // 활동 선택 핸들러
   const handleSelectCategory = useCallback((catId: string) => {
-    // 타이머 실행 중 다른 카테고리 선택은 무시(정지 먼저)
+    // 타이머 실행 중 다른 활동 선택은 무시(정지 먼저)
     if (timerStatus !== 'idle' && timerCategoryId !== catId) {
       showToast('먼저 현재 타이머를 정지해 주세요.', 'warning');
       return;
@@ -442,12 +442,12 @@ export function TodayStudy() {
   const handleDraftRestore = useCallback(() => {
     if (!pendingDraft) return;
     const catId = pendingDraft.categoryId;
-    // 해당 카테고리가 현재 로직에 존재하는지 확인
+    // 해당 활동이 현재 플랜에 존재하는지 확인
     if (selectedLogic?.categories.find(c => c.id === catId)) {
       setSelectedCategoryId(catId);
       restoreFromDraft(pendingDraft);
     } else {
-      showToast('이전 기록의 카테고리를 찾을 수 없어요.', 'warning');
+      showToast('이전 기록의 활동을 찾을 수 없어요.', 'warning');
       clearSessionDraft();
     }
     setPendingDraft(null);
@@ -515,7 +515,7 @@ export function TodayStudy() {
     showToast('기록이 삭제됐어요.', 'success');
   }, [deleteTarget, todayDateStr, deleteSessionMutation, showToast]);
 
-  // 달성률 계산 — 현재 선택된 로직의 그룹(todayGroup) 스코프로만 계산한다(§8-1).
+  // 달성률 계산 — 현재 선택된 플랜의 그룹(todayGroup) 스코프로만 계산한다(§8-1).
   const sessions = todayGroup?.sessions ?? [];
   const totalAccumulatedMinutes = getTotalAccumulatedMinutes(sessions);
   const totalTarget = selectedLogic?.totalTargetMinutes ?? 0;
@@ -535,18 +535,18 @@ export function TodayStudy() {
 
   const runningCategory = selectedLogic?.categories.find(c => c.id === timerCategoryId) ?? null;
   const elapsedLabel = formatElapsedTime(elapsedMs);
-  // 타이머 패널 상단 큰 카테고리명 — 타이머가 idle이면 방금 선택한 카테고리, 진행 중이면 실행 중인 카테고리.
+  // 타이머 패널 상단 큰 활동명 — 타이머가 idle이면 방금 선택한 활동, 진행 중이면 실행 중인 활동.
   const panelCategory = timerStatus === 'idle'
     ? (selectedLogic?.categories.find(c => c.id === selectedCategoryId) ?? null)
     : runningCategory;
 
-  // 수정 대상 세션이 실제로 속한 그룹 — categoryId 선택지는 그 그룹의 스냅샷 카테고리로 한정해야
-  // 서버 검증(§8-4: 다른 로직 카테고리로 변경 불가, 400 SESSION_CATEGORY_INVALID)에 걸리지 않는다.
+  // 수정 대상 세션이 실제로 속한 그룹 — categoryId 선택지는 그 그룹의 스냅샷 활동으로 한정해야
+  // 서버 검증(§8-4: 다른 플랜 활동으로 변경 불가, 400 SESSION_CATEGORY_INVALID)에 걸리지 않는다.
   const editTargetGroup = editTarget
     ? (todayRecords.find(r => r.sessions.some(s => s.id === editTarget.id)) ?? null)
     : null;
 
-  // 타이머 버튼 렌더 (모바일/PC 공통 로직, 스타일만 다름)
+  // 타이머 버튼 렌더 (모바일/PC 공통 플랜, 스타일만 다름)
   const renderTimerButtons = (variant: 'bar' | 'panel') => {
     const btnClass = variant === 'bar' ? styles.timerBtn : styles.timerPanelBtn;
     const startCls = variant === 'bar' ? styles.timerBtnStart : styles.timerPanelBtnStart;
@@ -595,7 +595,7 @@ export function TodayStudy() {
     routine: routineData ?? null,
     logics,
     lastUsedLogicId: settingsData?.lastUsedLogicId ?? selectedLogicId,
-    // 오늘 어떤 로직으로든 이미 공부를 시작했으면(그룹이 하나라도 있으면) 루틴 배너를 띄우지 않는다.
+    // 오늘 어떤 플랜으로든 이미 공부를 시작했으면(그룹이 하나라도 있으면) 루틴 배너를 띄우지 않는다.
     hasExistingRecord: todayRecords.length > 0,
   });
   const bannerText = getRoutineBannerText(banner);
@@ -623,15 +623,15 @@ export function TodayStudy() {
           <div className={styles.logicSelectorWrap}>
             <button
               className={styles.logicSelector}
-              aria-label="로직 선택"
+              aria-label="플랜 선택"
               aria-expanded={selectorOpen}
               onClick={() => setSelectorOpen(o => !o)}
             >
-              <span className={styles.logicName}>{selectedLogic?.name ?? '로직 없음'}</span>
+              <span className={styles.logicName}>{selectedLogic?.name ?? '플랜 없음'}</span>
               <span className={styles.logicArrow}>{selectorOpen ? '▴' : '▾'}</span>
             </button>
             {selectorOpen && logics.length > 0 && (
-              <div className={styles.logicDropdown} role="listbox" aria-label="로직 선택 목록">
+              <div className={styles.logicDropdown} role="listbox" aria-label="플랜 선택 목록">
                 {logics.map(l => (
                   <button
                     key={l.id}
@@ -662,15 +662,15 @@ export function TodayStudy() {
             <div className={styles.logicSelectorWrap}>
               <button
                 className={styles.logicSelector}
-                aria-label="로직 선택"
+                aria-label="플랜 선택"
                 aria-expanded={selectorOpen}
                 onClick={() => setSelectorOpen(o => !o)}
               >
-                <span className={styles.logicName}>{selectedLogic?.name ?? '로직 없음'}</span>
+                <span className={styles.logicName}>{selectedLogic?.name ?? '플랜 없음'}</span>
                 <span className={styles.logicArrow}>{selectorOpen ? '▴' : '▾'}</span>
               </button>
               {selectorOpen && logics.length > 0 && (
-                <div className={styles.logicDropdown} role="listbox" aria-label="로직 선택 목록">
+                <div className={styles.logicDropdown} role="listbox" aria-label="플랜 선택 목록">
                   {logics.map(l => (
                     <button
                       key={l.id}
@@ -714,21 +714,21 @@ export function TodayStudy() {
             </div>
           )}
           {allCategoriesDone && isRainbow && (
-            <span className={styles.specialBadge}>전 카테고리 100% 달성!</span>
+            <span className={styles.specialBadge}>전 활동 100% 달성!</span>
           )}
         </section>
 
         {/* ② 태블릿/PC 타이머 패널 */}
         {isTabletOrPC && (
           <div className={styles.timerPanel} aria-label="타이머">
-            {/* 카테고리를 선택하면(또는 진행 중이면) 상단에 이름을 크게 표시 */}
+            {/* 활동을 선택하면(또는 진행 중이면) 상단에 이름을 크게 표시 */}
             {panelCategory && (
               <div className={styles.timerPanelCatNameBig}>{panelCategory.name}</div>
             )}
             {timerStatus === 'idle' ? (
               <>
                 <div className={styles.timerPanelIdleMsg}>
-                  {selectedCategoryId ? '시작 버튼을 눌러 공부를 시작하세요.' : '카테고리를 선택해 주세요.'}
+                  {selectedCategoryId ? '시작 버튼을 눌러 공부를 시작하세요.' : '활동을 선택해 주세요.'}
                 </div>
                 <div className={styles.timerPanelElapsed}>00:00:00</div>
                 <div className={styles.timerPanelBtns}>
@@ -758,22 +758,22 @@ export function TodayStudy() {
           </div>
         )}
 
-        {/* ③ 카테고리 목록 */}
-        <section className={styles.categorySection} aria-label="카테고리 목록">
+        {/* ③ 활동 목록 */}
+        <section className={styles.categorySection} aria-label="활동 목록">
           {logics.length === 0 ? (
-            /* 온보딩: 로직 없음 */
+            /* 온보딩: 플랜 없음 */
             <div className={styles.onboarding}>
               <div className={styles.onboardingIcon}>📖</div>
               <p className={styles.onboardingMsg}>
-                아직 로직이 없어요.<br />로직을 만들어 볼까요?
+                아직 플랜이 없어요.<br />플랜을 만들어 볼까요?
               </p>
               <Link to="/logics/new" className={styles.onboardingBtn}>
-                로직 만들기
+                플랜 만들기
               </Link>
             </div>
           ) : (
           <>
-          <div className={styles.sectionTitle}>카테고리 선택</div>
+          <div className={styles.sectionTitle}>활동 선택</div>
 
           {selectedLogic ? (
             selectedLogic.categories.map((cat: Category) => {
@@ -792,10 +792,10 @@ export function TodayStudy() {
                   className={styles.catCard}
                   onClick={() => handleSelectCategory(cat.id)}
                   aria-pressed={isSelected}
-                  aria-label={`${cat.name} 카테고리 선택`}
+                  aria-label={`${cat.name} 활동 선택`}
                   style={{
                     borderLeftColor: colorValue,
-                    // 선택된 카드 외곽선 = 카테고리 색
+                    // 선택된 카드 외곽선 = 활동 색
                     borderTopColor: isSelected ? colorValue : 'transparent',
                     borderRightColor: isSelected ? colorValue : 'transparent',
                     borderBottomColor: isSelected ? colorValue : 'transparent',
@@ -839,34 +839,34 @@ export function TodayStudy() {
             })
           ) : (
             <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)' }}>
-              등록된 로직이 없어요.
+              등록된 플랜이 없어요.
             </p>
           )}
           </>
           )}
         </section>
 
-        {/* 오늘 세션 내역 — 오늘의 모든 로직 그룹을 로직별로 나눠 표시(다중 로직 대응) */}
+        {/* 오늘 세션 내역 — 오늘의 모든 플랜 그룹을 플랜별로 나눠 표시(다중 플랜 대응) */}
         {selectedLogic && (
           <section className={styles.sessionHistory} aria-label="오늘 기록 내역">
             <div className={styles.sessionHistoryTitle}>오늘 기록 내역</div>
             {todayRecords.length === 0 ? (
               <div className={styles.sessionEmpty}>오늘 아직 기록이 없어요.</div>
             ) : (
-              // PC(1200px+)에서는 이 래퍼가 가로 방향 flex로 바뀌어 로직 그룹이 좌→우 컬럼으로 나열된다.
+              // PC(1200px+)에서는 이 래퍼가 가로 방향 flex로 바뀌어 플랜 그룹이 좌→우 컬럼으로 나열된다.
               // 모바일/태블릿은 기본값(세로 스택) 그대로 유지.
               <div className={styles.sessionGroupsWrap}>
                 {todayRecords.map(group => (
                   <div key={`${group.logicId}-${group.createdAt}`} className={styles.sessionGroupBlock}>
-                    {/* 로직명은 그룹마다 항상(펼치기 없이) 표시 */}
+                    {/* 플랜명은 그룹마다 항상(펼치기 없이) 표시 */}
                     <div className={styles.sessionGroupHeader}>
-                      {group.logicSnapshot.name ?? '[삭제된 로직]'}
+                      {group.logicSnapshot.name ?? '[삭제된 플랜]'}
                     </div>
                     <div className={styles.sessionList}>
                       {group.sessions.map(sess => {
-                        // 버그 수정(L860 근본 원인): 현재 화면에 선택된 로직이 아니라,
-                        // 이 세션이 실제로 속한 그룹 자신의 스냅샷 카테고리에서 찾는다.
-                        // → 로직을 바꾼 뒤에도 과거 세션이 '알 수 없음'으로 표시되지 않는다.
+                        // 버그 수정(L860 근본 원인): 현재 화면에 선택된 플랜이 아니라,
+                        // 이 세션이 실제로 속한 그룹 자신의 스냅샷 활동에서 찾는다.
+                        // → 플랜을 바꾼 뒤에도 과거 세션이 '알 수 없음'으로 표시되지 않는다.
                         const cat = group.logicSnapshot.categories.find(c => c.id === sess.categoryId);
                         return (
                           <div key={sess.id} className={styles.sessionCard}>
@@ -919,7 +919,7 @@ export function TodayStudy() {
         )}
       </div>
 
-      {/* 세션 수정/추가 모달 — 수정은 세션이 속한 원래 그룹의 카테고리를, 추가는 현재 선택 로직의 카테고리를 사용 */}
+      {/* 세션 수정/추가 모달 — 수정은 세션이 속한 원래 그룹의 활동을, 추가는 현재 선택 플랜의 활동을 사용 */}
       {sessionModalMode && selectedLogic && (
         <SessionModal
           mode={sessionModalMode}
@@ -1000,7 +1000,7 @@ export function TodayStudy() {
           {timerStatus === 'idle' ? (
             <>
               <div className={styles.timerIdleMsg}>
-                {selectedCategoryId ? '시작 버튼을 눌러 공부를 시작하세요.' : '카테고리를 선택해 주세요.'}
+                {selectedCategoryId ? '시작 버튼을 눌러 공부를 시작하세요.' : '활동을 선택해 주세요.'}
               </div>
               <div className={styles.timerBtns}>
                 {renderTimerButtons('bar')}

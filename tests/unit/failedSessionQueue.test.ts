@@ -25,7 +25,7 @@ function makeEntry(overrides: Partial<FailedSessionEntry> = {}): FailedSessionEn
       source: 'timer',
       logicId: 'logic-1',
       logicSnapshot: {
-        name: '테스트 로직',
+        name: '테스트 플랜',
         totalTargetMinutes: 120,
         categories: [
           { id: 'cat-1', name: '수학', colorVar: '--color-mint', targetMinutes: 60, targetPercent: 50 },

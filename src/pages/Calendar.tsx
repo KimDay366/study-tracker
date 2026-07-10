@@ -54,7 +54,7 @@ export function Calendar() {
   const isTabletOrPC = useMediaQuery('(min-width: 768px)');
 
   // 서버 월간 기록 조회 → recordMap으로 변환해 집계 hook에 주입
-  // 다중 로직 대응: 같은 날짜에 로직 그룹이 여러 개 올 수 있으므로 배열로 묶는다.
+  // 다중 플랜 대응: 같은 날짜에 플랜 그룹이 여러 개 올 수 있으므로 배열로 묶는다.
   const { data: monthRecords, isLoading, isError, refetch } = useMonthlyRecords(year, month);
   const recordMap = useMemo(() => {
     const m = new Map<string, DailyRecord[]>();
@@ -95,18 +95,18 @@ export function Calendar() {
   // 실제 뮤테이션·모달에 사용할 대상 날짜 (선택된 날짜가 편집 불가면 오늘로 폴백 — 오늘 세션 추가는 항상 가능해야 하므로)
   const calTargetDate = editableDate ?? today;
 
-  // 대상 날짜의 로직 그룹 배열(다중 로직 대응). 미존재 시 빈 배열.
+  // 대상 날짜의 플랜 그룹 배열(다중 플랜 대응). 미존재 시 빈 배열.
   const { data: calTodayRecords = [] } = useDailyRecord(calTargetDate);
 
-  // 기록 "직접 추가"의 대상 로직 — QA Minor: 자동으로 "마지막 선택 로직"에 넣지 않고
-  // 사용자가 명시적으로 골라야 한다(특히 과거 날짜 추가 시 어느 로직인지 안 보이는 혼란 방지).
+  // 기록 "직접 추가"의 대상 플랜 — QA Minor: 자동으로 "마지막 선택 플랜"에 넣지 않고
+  // 사용자가 명시적으로 골라야 한다(특히 과거 날짜 추가 시 어느 플랜인지 안 보이는 혼란 방지).
   const { data: logics = [] } = useLogics();
-  // 선택된 날짜(calTargetDate)에 이미 기록이 있는 로직 id 집합 — 로직 선택 화면에서 "이 날 기록 있음" 표시용.
+  // 선택된 날짜(calTargetDate)에 이미 기록이 있는 플랜 id 집합 — 플랜 선택 화면에서 "이 날 기록 있음" 표시용.
   const loggedLogicIds = useMemo(
     () => new Set(calTodayRecords.map(r => r.logicId)),
     [calTodayRecords],
   );
-  // 기존에 이 날 기록이 있는 로직을 목록 위쪽에 노출 (새 로직 추가도 그대로 고를 수 있음)
+  // 기존에 이 날 기록이 있는 플랜을 목록 위쪽에 노출 (새 플랜 추가도 그대로 고를 수 있음)
   const addLogicPickerList = useMemo(
     () => [...logics].sort((a, b) => Number(loggedLogicIds.has(b.id)) - Number(loggedLogicIds.has(a.id))),
     [logics, loggedLogicIds],
@@ -133,8 +133,8 @@ export function Calendar() {
   const [calEditTarget, setCalEditTarget] = useState<Session | null>(null);
   const [calDeleteTarget, setCalDeleteTarget] = useState<Session | null>(null);
 
-  // "기록 직접 추가" 버튼 클릭 — 로직이 하나뿐이면 바로 그 로직으로, 이미 이 날짜에 골라둔 로직이 있으면
-  // 그걸 재사용, 그 외에는(첫 추가·로직 여러 개) 로직 선택 화면을 먼저 띄운다.
+  // "기록 직접 추가" 버튼 클릭 — 플랜이 하나뿐이면 바로 그 플랜으로, 이미 이 날짜에 골라둔 플랜이 있으면
+  // 그걸 재사용, 그 외에는(첫 추가·플랜 여러 개) 플랜 선택 화면을 먼저 띄운다.
   const handleOpenAddFlow = useCallback(() => {
     if (logics.length === 0) return;
     if (logics.length === 1) {
@@ -158,13 +158,13 @@ export function Calendar() {
     setCalSessionModalMode('add');
   }, []);
 
-  // 수정 대상 세션이 속한 로직 그룹 — categoryId 검증은 그 그룹의 스냅샷 카테고리 기준이므로
-  // (§8-4: 다른 로직 카테고리로 변경 불가) 수정 모달에는 반드시 세션 원래 그룹의 카테고리를 보여줘야 한다.
+  // 수정 대상 세션이 속한 플랜 그룹 — categoryId 검증은 그 그룹의 스냅샷 활동 기준이므로
+  // (§8-4: 다른 플랜 활동으로 변경 불가) 수정 모달에는 반드시 세션 원래 그룹의 활동을 보여줘야 한다.
   const calEditTargetGroup = useMemo(
     () => calTodayRecords.find(r => r.sessions.some(s => s.id === calEditTarget?.id)) ?? null,
     [calTodayRecords, calEditTarget],
   );
-  // 겹침 검사는 로직과 무관하게 그날 전체 세션을 대상으로 해야 한다(같은 시간에 두 로직을 동시에 할 수는 없으므로).
+  // 겹침 검사는 플랜과 무관하게 그날 전체 세션을 대상으로 해야 한다(같은 시간에 두 플랜을 동시에 할 수는 없으므로).
   const calAllTodaySessions = useMemo(
     () => calTodayRecords.flatMap(r => r.sessions),
     [calTodayRecords],
@@ -250,7 +250,7 @@ export function Calendar() {
   const handleSelectDate = useCallback(
     (date: string) => {
       setSelectedDate(date);
-      // 날짜가 바뀌면 이전 날짜에서 골라둔 추가 대상 로직은 초기화 — 그 날짜 기준으로 다시 고르게 한다.
+      // 날짜가 바뀌면 이전 날짜에서 골라둔 추가 대상 플랜은 초기화 — 그 날짜 기준으로 다시 고르게 한다.
       setCalAddLogicId(null);
       if (!isTabletOrPC) {
         setSheetOpen(true);
@@ -375,9 +375,9 @@ export function Calendar() {
         </>
       )}
 
-      {/* 로직 선택 화면 — 기록 추가 시 어느 로직에 추가할지 먼저 명시적으로 고른다(QA: 자동 선택 금지) */}
+      {/* 플랜 선택 화면 — 기록 추가 시 어느 플랜에 추가할지 먼저 명시적으로 고른다(QA: 자동 선택 금지) */}
       {showAddLogicPicker && (
-        <Modal title="어느 로직에 추가할까요?" onClose={() => setShowAddLogicPicker(false)}>
+        <Modal title="어느 플랜에 추가할까요?" onClose={() => setShowAddLogicPicker(false)}>
           <div className={styles.logicPickerList}>
             {addLogicPickerList.map((logic) => (
               <button
@@ -396,7 +396,7 @@ export function Calendar() {
         </Modal>
       )}
 
-      {/* 달력 세션 수정/추가 모달 — 수정은 그 세션이 속한 원래 그룹의 카테고리를, 추가는 방금 고른 로직의 카테고리를 사용 */}
+      {/* 달력 세션 수정/추가 모달 — 수정은 그 세션이 속한 원래 그룹의 활동을, 추가는 방금 고른 플랜의 활동을 사용 */}
       {calSessionModalMode && (calSessionModalMode === 'edit' ? calEditTargetGroup : calAddLogic) && (
         <SessionModal
           mode={calSessionModalMode}

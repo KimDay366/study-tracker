@@ -32,7 +32,7 @@ export function useMonthlyRecords(year: number, month: number) {
   });
 }
 
-/** 단일 날짜 기록 조회 (오늘 레코드 등). 그 날짜의 로직 그룹 배열(빈 배열 = 기록 없음). */
+/** 단일 날짜 기록 조회 (오늘 레코드 등). 그 날짜의 플랜 그룹 배열(빈 배열 = 기록 없음). */
 export function useDailyRecord(date: string) {
   return useQuery({
     queryKey: [...DAILY_RECORDS_KEY, 'date', date],

@@ -76,7 +76,7 @@ export function LogicEdit() {
   const updateLogic = useUpdateLogic();
   const patchSettings = usePatchSettings();
 
-  // 수정 모드: 이미 캐시에 있는 로직 데이터 활용
+  // 수정 모드: 이미 캐시에 있는 플랜 데이터 활용
   const existingLogic = useMemo(
     () => (isNew ? null : logics.find(l => l.id === id) ?? null),
     [id, isNew, logics],
@@ -121,13 +121,13 @@ export function LogicEdit() {
   const dir2Valid = isPercentSumValid(dir2Percents);
 
   // ---- 유효성 ----
-  const nameError = logicName.trim().length === 0 ? '로직명을 입력해 주세요.' : null;
+  const nameError = logicName.trim().length === 0 ? '플랜명을 입력해 주세요.' : null;
   const catNames = cats.map(c => c.name.trim());
   const dupSet = new Set<string>();
   const dupErrors: (string | null)[] = catNames.map((n, i) => {
-    if (!n) return '카테고리 이름을 입력해 주세요.';
-    if (catNames.indexOf(n) !== i) return '같은 이름의 카테고리가 있어요.';
-    if (dupSet.has(n)) return '같은 이름의 카테고리가 있어요.';
+    if (!n) return '활동 이름을 입력해 주세요.';
+    if (catNames.indexOf(n) !== i) return '같은 이름의 활동이 있어요.';
+    if (dupSet.has(n)) return '같은 이름의 활동이 있어요.';
     dupSet.add(n);
     return null;
   });
@@ -164,7 +164,7 @@ export function LogicEdit() {
 
   function handleAddCat() {
     if (cats.length >= MAX_CATEGORIES) {
-      showToast('카테고리는 최대 10개까지 추가할 수 있어요.', 'warning');
+      showToast('활동은 최대 10개까지 추가할 수 있어요.', 'warning');
       return;
     }
     const usedColors = new Set(cats.map(c => c.colorVar));
@@ -247,9 +247,9 @@ export function LogicEdit() {
           totalTargetMinutes: finalTotal,
           categories: finalCategories.map(({ id: _id, ...rest }) => rest),
         });
-        // 새 로직을 마지막 사용 로직으로 설정
+        // 새 플랜을 마지막 사용 플랜으로 설정
         await patchSettings.mutateAsync({ lastUsedLogicId: created.id });
-        showToast('로직이 저장됐어요.', 'success');
+        showToast('플랜이 저장됐어요.', 'success');
       } else {
         await updateLogic.mutateAsync({
           id: id!,
@@ -259,7 +259,7 @@ export function LogicEdit() {
             categories: finalCategories,
           },
         });
-        showToast('로직을 수정했어요.', 'success');
+        showToast('플랜을 수정했어요.', 'success');
       }
       navigate('/logics');
     } catch {
@@ -274,7 +274,7 @@ export function LogicEdit() {
       {/* 앱바 */}
       <header className={styles.appBar}>
         <button className={styles.backBtn} onClick={handleBack} aria-label="뒤로 가기">←</button>
-        <span className={styles.appBarTitle}>{isNew ? '로직 만들기' : '로직 수정'}</span>
+        <span className={styles.appBarTitle}>{isNew ? '플랜 만들기' : '플랜 수정'}</span>
         <button
           className={styles.saveBtn}
           onClick={handleSave}
@@ -287,11 +287,11 @@ export function LogicEdit() {
 
       {/* 폼 */}
       <div className={styles.formSection}>
-        {/* 로직명 */}
+        {/* 플랜명 */}
         <div className={`${styles.formGroup} ${styles.leftCol}`}>
           <div>
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>로직명</label>
+              <label className={styles.formLabel}>플랜명</label>
               <input
                 className={`${styles.inputField}${nameError && logicName !== '' ? ` ${styles.inputError}` : ''}`}
                 type="text"
@@ -299,7 +299,7 @@ export function LogicEdit() {
                 value={logicName}
                 onChange={e => setLogicName(e.target.value)}
                 placeholder="예: 수능 D-100"
-                aria-label="로직명"
+                aria-label="플랜명"
               />
               {nameError && logicName.trim() !== '' && (
                 <span className={styles.errorMsg}>{nameError}</span>
@@ -317,7 +317,7 @@ export function LogicEdit() {
                 onClick={() => handleDirectionChange(1)}
                 aria-pressed={direction === 1}
               >
-                ① 카테고리 시간 합산
+                ① 활동 시간 합산
               </button>
               <button
                 className={`${styles.toggleOpt}${direction === 2 ? ` ${styles.toggleActive}` : ''}`}
@@ -337,9 +337,9 @@ export function LogicEdit() {
                   {dir1Total > 0 ? formatMinutes(dir1Total) : '—'}
                 </span>
               </div>
-              {/* 카테고리별 입력 시간을 전체 대비 비율로 보여주는 게이지 (방향②의 배분 현황과 동일한 시각 언어) */}
+              {/* 활동별 입력 시간을 전체 대비 비율로 보여주는 게이지 (방향②의 배분 현황과 동일한 시각 언어) */}
               {dir1Total > 0 && (
-                <div className={styles.stackedBar} aria-label="카테고리 비율 현황">
+                <div className={styles.stackedBar} aria-label="활동 비율 현황">
                   {cats.map((cat, i) => (
                     dir1Percents[i] > 0 && (
                       <div
@@ -349,9 +349,9 @@ export function LogicEdit() {
                           width: `${Math.min(dir1Percents[i], 100)}%`,
                           background: `var(${cat.colorVar})`,
                         }}
-                        title={cat.name || `카테고리 ${i + 1}`}
+                        title={cat.name || `활동 ${i + 1}`}
                       >
-                        {dir1Percents[i] >= 8 ? (cat.name || `카테고리 ${i + 1}`) : ''}
+                        {dir1Percents[i] >= 8 ? (cat.name || `활동 ${i + 1}`) : ''}
                       </div>
                     )
                   ))}
@@ -403,9 +403,9 @@ export function LogicEdit() {
                             width: `${Math.min(cat.percent, 100)}%`,
                             background: `var(${cat.colorVar})`,
                           }}
-                          title={`${cat.name || `카테고리 ${i + 1}`}`}
+                          title={`${cat.name || `활동 ${i + 1}`}`}
                         >
-                          {cat.percent >= 8 ? (cat.name || `카테고리 ${i + 1}`) : ''}
+                          {cat.percent >= 8 ? (cat.name || `활동 ${i + 1}`) : ''}
                         </div>
                       )
                     ))}
@@ -437,10 +437,10 @@ export function LogicEdit() {
           )}
         </div>
 
-        {/* 카테고리 목록 */}
+        {/* 활동 목록 */}
         <div className={`${styles.formGroup} ${styles.rightCol}`}>
           <div className={styles.formGroup}>
-            <div className={styles.formLabel}>카테고리 목록</div>
+            <div className={styles.formLabel}>활동 목록</div>
             <span className={styles.formHint}>{cats.length} / {MAX_CATEGORIES}개</span>
           </div>
 
@@ -457,7 +457,7 @@ export function LogicEdit() {
                       className={styles.colorBtn}
                       style={{ background: `var(${cat.colorVar})` }}
                       onClick={() => setColorModalForIdx(idx)}
-                      aria-label="카테고리 색상 선택"
+                      aria-label="활동 색상 선택"
                       title="색상 선택"
                     />
                     <input
@@ -466,14 +466,14 @@ export function LogicEdit() {
                       maxLength={20}
                       value={cat.name}
                       onChange={e => updateCat(idx, { name: e.target.value })}
-                      placeholder={`카테고리 ${idx + 1}`}
-                      aria-label={`카테고리 ${idx + 1} 이름`}
+                      placeholder={`활동 ${idx + 1}`}
+                      aria-label={`활동 ${idx + 1} 이름`}
                     />
                     <button
                       className={styles.deleteCatBtn}
                       onClick={() => handleRemoveCat(idx)}
                       disabled={cats.length <= 1}
-                      aria-label={`카테고리 ${idx + 1} 삭제`}
+                      aria-label={`활동 ${idx + 1} 삭제`}
                       title="삭제"
                     >
                       ✕
@@ -495,7 +495,7 @@ export function LogicEdit() {
                             max={24}
                             value={cat.hours}
                             onChange={e => handleCatHoursChange(idx, e.target.value)}
-                            aria-label={`카테고리 ${idx + 1} 시간`}
+                            aria-label={`활동 ${idx + 1} 시간`}
                           />
                           <span className={styles.timeUnit}>시간</span>
                         </div>
@@ -507,7 +507,7 @@ export function LogicEdit() {
                             max={59}
                             value={cat.minutes}
                             onChange={e => handleCatMinsChange(idx, e.target.value)}
-                            aria-label={`카테고리 ${idx + 1} 분`}
+                            aria-label={`활동 ${idx + 1} 분`}
                           />
                           <span className={styles.timeUnit}>분</span>
                         </div>
@@ -545,7 +545,7 @@ export function LogicEdit() {
                         style={{
                           background: `linear-gradient(to right, var(${cat.colorVar}) ${cat.percent}%, var(--color-border) ${cat.percent}%)`,
                         }}
-                        aria-label={`카테고리 ${idx + 1} 비중`}
+                        aria-label={`활동 ${idx + 1} 비중`}
                       />
                       <input
                         className={styles.catPctInput}
@@ -554,7 +554,7 @@ export function LogicEdit() {
                         max={100}
                         value={cat.percent}
                         onChange={e => handlePctInput(idx, e.target.value)}
-                        aria-label={`카테고리 ${idx + 1} 퍼센트`}
+                        aria-label={`활동 ${idx + 1} 퍼센트`}
                       />
                       <span className={styles.timeUnit}>%</span>
                       {totalMinutes > 0 && (
@@ -571,16 +571,16 @@ export function LogicEdit() {
             className={styles.addCatBtn}
             onClick={handleAddCat}
             disabled={cats.length >= MAX_CATEGORIES}
-            aria-label="카테고리 추가"
+            aria-label="활동 추가"
           >
-            + 카테고리 추가
+            + 활동 추가
           </button>
         </div>
       </div>
 
       {/* 색상 팔레트 모달 */}
       {colorModalForIdx !== null && (
-        <Modal title="카테고리 색상 선택" onClose={() => setColorModalForIdx(null)}>
+        <Modal title="활동 색상 선택" onClose={() => setColorModalForIdx(null)}>
           <div className={styles.colorPaletteGrid}>
             {CAT_COLORS.map(colorVar => {
               const isSelected = cats[colorModalForIdx]?.colorVar === colorVar;

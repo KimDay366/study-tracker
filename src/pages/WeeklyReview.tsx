@@ -109,7 +109,7 @@ function getWeekDates(weekStartDate: string): string[] {
 // ==============================
 interface AccordionItemProps {
   dateStr: string;
-  /** 다중 로직 대응: 그 날짜의 로직 그룹 배열(빈 배열 = 기록 없음). 주간 스코어는 그룹들을 합산해 보여준다. */
+  /** 다중 플랜 대응: 그 날짜의 플랜 그룹 배열(빈 배열 = 기록 없음). 주간 스코어는 그룹들을 합산해 보여준다. */
   records: DailyRecord[];
   isToday: boolean;
   isFuture: boolean;
@@ -125,7 +125,7 @@ function AccordionItem({ dateStr, records, isToday, isFuture }: AccordionItemPro
   const hasRecord = records.length > 0;
   const multiGroup = records.length > 1;
 
-  // 총 달성률 — 같은 날짜의 여러 로직 그룹을 SUM(누적 공부시간 / 누적 목표시간)해 하루 전체 스코어로 보여준다.
+  // 총 달성률 — 같은 날짜의 여러 플랜 그룹을 SUM(누적 공부시간 / 누적 목표시간)해 하루 전체 스코어로 보여준다.
   const totalMinutes = records.reduce(
     (sum, r) => sum + r.sessions.reduce((s, sess) => s + sess.durationMinutes, 0), 0,
   );
@@ -133,13 +133,13 @@ function AccordionItem({ dateStr, records, isToday, isFuture }: AccordionItemPro
   const totalPct = hasRecord
     ? (totalTarget > 0 ? Math.round((totalMinutes / totalTarget) * 1000) / 10 : 0)
     : null;
-  // 오늘 로직이 여럿이면 이름을 함께 표시(예: "수능 D-100 · 내신 대비")
-  const logicName = hasRecord ? records.map(r => r.logicSnapshot.name ?? '[삭제된 로직]').join(' · ') : null;
+  // 오늘 플랜이 여럿이면 이름을 함께 표시(예: "수능 D-100 · 내신 대비")
+  const logicName = hasRecord ? records.map(r => r.logicSnapshot.name ?? '[삭제된 플랜]').join(' · ') : null;
 
   // 기록 없는 날: 펼쳐도 내용 없음 → 클릭 불필요
   const canToggle = hasRecord;
 
-  // 카테고리별 달성률 계산 — 그룹이 여럿이면 카테고리 이름 앞에 로직명을 붙여 구분한다.
+  // 활동별 달성률 계산 — 그룹이 여럿이면 활동 이름 앞에 플랜명을 붙여 구분한다.
   const catPercents: Array<{ id: string; name: string; colorVar: string; pct: number }> = [];
   records.forEach(record => {
     const catMinMap = new Map<string, number>();
@@ -257,14 +257,14 @@ export function WeeklyReview() {
   const todayStr = toYMD(new Date());
 
   // 해당 주 7일 기록 (서버 조회, 달력/타이머와 캐시 공유)
-  // 다중 로직 대응: 하루에 로직 그룹이 여럿일 수 있으므로 날짜별로 배열을 보관한다.
+  // 다중 플랜 대응: 하루에 플랜 그룹이 여럿일 수 있으므로 날짜별로 배열을 보관한다.
   const recordQueries = useWeekRecords(weekDates);
   const records = new Map<string, DailyRecord[]>();
   recordQueries.forEach((q, i) => {
     records.set(weekDates[i], q.data ?? []);
   });
 
-  // 기존 회고 로드 (서버)
+  // 기존 주간 정리 로드 (서버)
   const { data: existingReview } = useWeeklyReview(weekStartDate);
   useEffect(() => {
     if (existingReview === undefined) return; // 로딩 중엔 현재 입력 유지
@@ -333,7 +333,7 @@ export function WeeklyReview() {
           builtinQuoteIndex,
         },
       });
-      showToast('회고가 저장됐어요.', 'success');
+      showToast('주간 정리가 저장됐어요.', 'success');
     } catch {
       showToast('저장 중 오류가 발생했어요.', 'danger');
     } finally {
@@ -349,7 +349,7 @@ export function WeeklyReview() {
     <div>
       {/* 헤더: 제목 + 주 선택기 */}
       <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>주간 회고</h1>
+        <h1 className={styles.pageTitle}>주간 정리</h1>
         <div className={styles.weekNav}>
           <button
             type="button"
@@ -376,7 +376,7 @@ export function WeeklyReview() {
       {isNotSunday && (
         <div className={styles.infoBanner}>
           <span>📅</span>
-          <span>일요일에 회고를 작성하면 한 주를 더 잘 마무리할 수 있어요!</span>
+          <span>일요일에 정리를 작성하면 한 주를 더 잘 마무리할 수 있어요!</span>
         </div>
       )}
 
@@ -404,10 +404,10 @@ export function WeeklyReview() {
           </div>
         </div>
 
-        {/* 오른쪽: KPT 회고 + 저장 */}
+        {/* 오른쪽: KPT 정리 + 저장 */}
         <div>
           <div className={styles.sectionCard}>
-            <div className={styles.sectionCardHeader}>KPT 회고</div>
+            <div className={styles.sectionCardHeader}>KPT 정리</div>
             <div className={styles.sectionCardBody}>
               <div className={styles.kptSection}>
 
