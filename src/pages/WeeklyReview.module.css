@@ -502,26 +502,44 @@
   cursor: not-allowed;
 }
 
-/* 뒤로가기(달력으로) */
-.backLink {
-  display: inline-flex;
+/* 앱바 — '플랜 만들기'와 동일한 상단 바(뒤로 아이콘 + 제목 + 주 선택기, 흰 배경).
+   mainContent의 30px 패딩을 마진으로 상쇄해 edge-to-edge로 표시한다. */
+.appBar {
+  display: flex;
   align-items: center;
-  gap: var(--space-1);
-  margin-bottom: var(--space-3);
-  padding: 6px var(--space-3);
-  background: transparent;
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-full);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: background var(--duration-fast), border-color var(--duration-fast);
+  gap: var(--space-3);
+  min-height: 56px;
+  margin: -30px -30px var(--space-5) -30px;
+  padding: 0 var(--space-4);
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
-.backLink:hover {
-  background: var(--color-bg-subtle);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+.backBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-1);
+  background: none;
+  border: none;
+  font-size: var(--text-xl);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--duration-fast);
+}
+
+.backBtn:hover {
+  color: var(--color-text-primary);
+}
+
+.appBarTitle {
+  flex: 1;
+  font-size: var(--text-md);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
 }
 
 /* KPT 카드 [수정] 버튼 */

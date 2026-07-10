@@ -375,18 +375,17 @@ export function WeeklyReview() {
 
   return (
     <div>
-      {/* 뒤로: 보던 달력 월로 복귀 */}
-      <button
-        type="button"
-        className={styles.backLink}
-        onClick={() => navigate(`/calendar?ym=${fromMonth ?? weekStartDate.slice(0, 7)}`)}
-      >
-        ← 달력으로
-      </button>
-
-      {/* 헤더: 제목 + 주 선택기 */}
-      <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>주간 정리</h1>
+      {/* 앱바: 뒤로 아이콘 + 제목 + 주 선택기 (플랜 만들기와 동일 레이아웃) */}
+      <header className={styles.appBar}>
+        <button
+          type="button"
+          className={styles.backBtn}
+          onClick={() => navigate(`/calendar?ym=${fromMonth ?? weekStartDate.slice(0, 7)}`)}
+          aria-label="달력으로 뒤로 가기"
+        >
+          ←
+        </button>
+        <span className={styles.appBarTitle}>주간 정리</span>
         <div className={styles.weekNav}>
           <button
             type="button"
@@ -407,7 +406,7 @@ export function WeeklyReview() {
             ›
           </button>
         </div>
-      </div>
+      </header>
 
       {/* 상태 배너 — 미래(미개시) / 마감(열람만) 안내 */}
       {isFutureWeek && (
