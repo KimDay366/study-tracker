@@ -4,7 +4,6 @@ import type { DailyRecord } from '@/types';
 import { useWeekRecords } from '@/hooks/query/useDailyRecords';
 import { useWeeklyReview, useUpsertWeeklyReview } from '@/hooks/query/useWeeklyReviews';
 import { getApiErrorCode } from '@/lib/api/errorCode';
-import { QUOTES, getRandomQuote } from '@/lib/quotes';
 import { useUIStore } from '@/stores/uiStore';
 import styles from './WeeklyReview.module.css';
 
@@ -257,9 +256,8 @@ export function WeeklyReview() {
   const [keep, setKeep] = useState('');
   const [problem, setProblem] = useState('');
   const [tryText, setTryText] = useState('');
+  // pledge: 입력 UI는 제거됐지만 DB 필드 유지를 위해 기존 저장값을 상태로 보존한다.
   const [pledge, setPledge] = useState('');
-  const [pledgeVisible, setPledgeVisible] = useState(false);
-  const [currentQuoteIdx, setCurrentQuoteIdx] = useState(() => Math.floor(Math.random() * QUOTES.length));
   const [saving, setSaving] = useState(false);
 
   const weekDates = useMemo(() => getWeekDates(weekStartDate), [weekStartDate]);
@@ -287,9 +285,8 @@ export function WeeklyReview() {
     setKeep(existingReview?.keep ?? '');
     setProblem(existingReview?.problem ?? '');
     setTryText(existingReview?.try ?? '');
-    // 저장된 pledge는 usedBuiltinQuote 여부와 무관하게 항상 복원
+    // 저장된 pledge는 UI엔 안 보이지만 재저장 시 유실되지 않도록 상태로 복원
     setPledge(existingReview?.pledge ?? '');
-    setPledgeVisible(false);
     // 이미 저장된 주는 잠금(열람), 미저장이면서 기간 내면 바로 작성 모드로 시작
     const wkSun = addDays(weekStartDate, 6);
     const editable = todayStr >= wkSun && todayStr <= addDays(wkSun, 30);
@@ -310,48 +307,21 @@ export function WeeklyReview() {
 
   const canGoNext = addWeeks(weekStartDate, 1) <= thisWeekMonday;
 
-  const handleRefreshQuote = useCallback(() => {
-    setCurrentQuoteIdx(prev => {
-      let next = prev;
-      if (QUOTES.length > 1) {
-        while (next === prev) {
-          next = Math.floor(Math.random() * QUOTES.length);
-        }
-      }
-      return next;
-    });
-  }, []);
-
   const upsertMutation = useUpsertWeeklyReview();
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      let pledgeText: string;
-      let usedBuiltinQuote: boolean;
-      let builtinQuoteIndex: number | null;
-
-      if (pledge.trim() === '') {
-        // 다짐 필드 비어있으면 저장 시점에 랜덤 명언 고정
-        const { quote, index } = getRandomQuote();
-        pledgeText = quote.text;
-        usedBuiltinQuote = true;
-        builtinQuoteIndex = index;
-      } else {
-        pledgeText = pledge.trim();
-        usedBuiltinQuote = false;
-        builtinQuoteIndex = null;
-      }
-
       await upsertMutation.mutateAsync({
         weekStartDate,
         body: {
           keep,
           problem,
           try: tryText,
-          pledge: pledgeText,
-          usedBuiltinQuote,
-          builtinQuoteIndex,
+          // 다짐 입력 UI는 제거됐지만 DB 필드는 유지 — 기존 저장값/메타를 그대로 보존
+          pledge,
+          usedBuiltinQuote: existingReview?.usedBuiltinQuote ?? false,
+          builtinQuoteIndex: existingReview?.builtinQuoteIndex ?? null,
         },
       });
       showToast('주간 정리가 저장됐어요.', 'success');
@@ -368,10 +338,9 @@ export function WeeklyReview() {
     } finally {
       setSaving(false);
     }
-  }, [weekStartDate, keep, problem, tryText, pledge, showToast, upsertMutation]);
+  }, [weekStartDate, keep, problem, tryText, pledge, existingReview, showToast, upsertMutation]);
 
   const weekRangeLabel = formatWeekRange(weekStartDate);
-  const currentQuote = QUOTES[currentQuoteIdx];
 
   return (
     <div>
@@ -495,22 +464,11 @@ export function WeeklyReview() {
                   />
                 </div>
 
-                {/* Try + [한줄다짐 보기] 버튼 */}
+                {/* Try */}
                 <div>
-                  <div className={styles.kptLabelRow}>
-                    <div className={styles.kptLabelLeft}>
-                      <span className={`${styles.kptBadge} ${styles.kptBadgeT}`}>T</span>
-                      Try — 다음 주에 시도할 것
-                    </div>
-                    {editMode && (
-                      <button
-                        type="button"
-                        className={styles.btnPledgeTrigger}
-                        onClick={() => setPledgeVisible(v => !v)}
-                      >
-                        ✨ 한줄다짐 보기
-                      </button>
-                    )}
+                  <div className={styles.kptLabel}>
+                    <span className={`${styles.kptBadge} ${styles.kptBadgeT}`}>T</span>
+                    Try — 다음 주에 시도할 것
                   </div>
                   <textarea
                     className={`${styles.textarea} ${!editMode ? styles.textareaLocked : ''}`}
@@ -520,48 +478,6 @@ export function WeeklyReview() {
                     readOnly={!editMode}
                     placeholder="다음 주에 새롭게 시도하거나 개선할 방법을 적어 보세요."
                   />
-
-                  {/* 한줄다짐 입력 필드 */}
-                  <textarea
-                    className={`${styles.textarea} ${!editMode ? styles.textareaLocked : ''}`}
-                    rows={2}
-                    maxLength={200}
-                    value={pledge}
-                    onChange={e => setPledge(e.target.value)}
-                    readOnly={!editMode}
-                    placeholder="이번 주 나만의 한 줄 다짐을 적어 보세요."
-                    style={{ marginTop: 'var(--space-2)' }}
-                  />
-
-                  {/* 명언 카드 */}
-                  {pledgeVisible && (
-                    <div className={styles.quoteCard}>
-                      <div className={styles.quoteCardLabel}>
-                        <span>✨</span>
-                        오늘의 다짐 명언
-                      </div>
-                      <div className={styles.quoteText}>
-                        "{currentQuote.text}"
-                      </div>
-                      <div className={styles.quoteSource}>— {currentQuote.source}</div>
-                      <div className={styles.quoteActions}>
-                        <button
-                          type="button"
-                          className={styles.btnQuoteRefresh}
-                          onClick={handleRefreshQuote}
-                        >
-                          다른 명언 보기
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnQuoteRefresh}
-                          onClick={() => setPledge(currentQuote.text)}
-                        >
-                          이 문장으로 저장
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
               </div>

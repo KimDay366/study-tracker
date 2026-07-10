@@ -23,12 +23,21 @@ import { Dialog } from '@/components/common/Dialog';
 import { generateId } from '@/lib/uuid';
 import { formatTimestamp } from '@/hooks/useCalendarMonth';
 import { resolveRoutineLogic, getRoutineBannerText } from '@/hooks/useRoutine';
+import { QUOTES } from '@/lib/quotes';
 import styles from './TodayStudy.module.css';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
 function getTodayDateString(): string {
   return getLocalDateString();
+}
+
+// 오늘의 명언: 연중 일수(day-of-year) 기준 결정적 인덱스 — 하루 동안은 리렌더링돼도 고정된다.
+function getDailyQuoteIndex(dateStr: string): number {
+  const d = new Date(dateStr + 'T00:00:00');
+  const startOfYear = new Date(d.getFullYear(), 0, 1);
+  const dayOfYear = Math.floor((d.getTime() - startOfYear.getTime()) / 86400000);
+  return dayOfYear % QUOTES.length;
 }
 
 function formatDateLabel(dateStr: string): { date: string; day: string } {
@@ -106,6 +115,8 @@ export function TodayStudy() {
   const handleStopRef = useRef<((skipShortCheck?: boolean) => void) | null>(null);
 
   const { date: dateLabel, day: dayLabel } = formatDateLabel(todayDateStr);
+  const dailyQuote = QUOTES[getDailyQuoteIndex(todayDateStr)];
+  const dailyQuoteFull = `${dailyQuote.text} — ${dailyQuote.source}`;
 
   // 선택된 플랜
   const selectedLogic = logics.find(l => l.id === selectedLogicId) ?? logics[0] ?? null;
@@ -654,6 +665,14 @@ export function TodayStudy() {
         </header>
       )}
 
+      {/* 모바일 오늘의 명언 — 헤더 바로 아래 한 줄 */}
+      {!isTabletOrPC && (
+        <div className={styles.mobileQuoteBar} title={dailyQuoteFull}>
+          <span className={styles.todayQuoteMark}>✨</span>
+          <span className={styles.todayQuoteText}>{dailyQuoteFull}</span>
+        </div>
+      )}
+
       {/* 태블릿/PC 헤더 */}
       {isTabletOrPC && (
         <div className={styles.pageHeader}>
@@ -687,9 +706,15 @@ export function TodayStudy() {
               )}
             </div>
           </div>
-          <div className={styles.todayDate}>
-            <div>{dateLabel}</div>
-            <div className={styles.todayDateDay}>{dayLabel}</div>
+          <div className={styles.pageHeaderRight}>
+            <div className={styles.todayQuote} title={dailyQuoteFull}>
+              <span className={styles.todayQuoteMark}>✨</span>
+              <span className={styles.todayQuoteText}>{dailyQuoteFull}</span>
+            </div>
+            <div className={styles.todayDate}>
+              <div>{dateLabel}</div>
+              <div className={styles.todayDateDay}>{dayLabel}</div>
+            </div>
           </div>
         </div>
       )}
