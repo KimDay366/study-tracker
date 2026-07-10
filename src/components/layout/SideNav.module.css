@@ -46,9 +46,20 @@
 }
 
 .navItem a.active {
-  background-color: var(--color-bg-subtle);
-  color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  color: var(--color-text-on-primary);
   font-weight: var(--font-semibold);
+  box-shadow: var(--shadow-sm);
+}
+
+.navIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.navLabel {
+  min-width: 0;
 }
 
 /* 일요일 주간 회고 작성 유도 배지 (텍스트 칩) */
@@ -58,4 +69,8 @@
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
   color: var(--color-primary);
+}
+
+.navItem a.active .navBadge {
+  color: var(--color-text-on-primary);
 }

@@ -14,7 +14,7 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   width: 100%;
-  max-width: 320px;
+  max-width: 360px;
   padding: var(--space-6);
   text-align: center;
   animation: scaleIn var(--duration-base) var(--ease-decel);
@@ -39,11 +39,20 @@
 
 .actions {
   display: flex;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
+/* 버튼 2개가 기본적으로 균등폭으로 한 줄에 나오되, 텍스트가 다 들어가지 않을 만큼
+   좁아지면(초소형 화면·긴 라벨) 자동으로 줄바꿈되어 세로 스택으로 전환된다. */
 .actions > * {
-  flex: 1;
+  flex: 1 1 128px;
+}
+
+.actions > button {
+  white-space: nowrap;
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
 }
 
 @keyframes scaleIn {

@@ -45,6 +45,7 @@ type ResetStep = 'idle' | 'step1' | 'step2';
 export function Settings() {
   const showToast = useUIStore(s => s.showToast);
   const setUnauthenticated = useAuthStore(s => s.setUnauthenticated);
+  const user = useAuthStore(s => s.user);
 
   const { data: serverSettings } = useSettings();
   const addSessionMutation = useAddSession();
@@ -145,6 +146,24 @@ export function Settings() {
         {/* 계정 */}
         <div className={styles.settingsCard}>
           <div className={styles.settingsCardHeader}>계정</div>
+          {user && (
+            <>
+              <div className={styles.settingsRow}>
+                <div className={styles.settingsRowLeft}>
+                  <div className={styles.settingsRowLabel}>닉네임</div>
+                  <div className={styles.settingsRowDesc}>앱에서 나를 나타내는 이름이에요.</div>
+                </div>
+                <span className={styles.appInfoValue}>{user.nickname}</span>
+              </div>
+              <div className={styles.settingsRow}>
+                <div className={styles.settingsRowLeft}>
+                  <div className={styles.settingsRowLabel}>이메일</div>
+                  <div className={styles.settingsRowDesc}>로그인에 사용하는 이메일이에요.</div>
+                </div>
+                <span className={styles.appInfoValue}>{user.email}</span>
+              </div>
+            </>
+          )}
           <div className={styles.settingsRow}>
             <div className={styles.settingsRowLeft}>
               <div className={styles.settingsRowLabel}>로그아웃</div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { login, signup, resendVerification } from '@/api/auth';
+import { login, signup, resendVerification, checkEmail } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { clearSessionAndCache } from '@/lib/storage/clearLocalData';
 import { getApiErrorCode } from '@/lib/api/errorCode';
@@ -46,12 +46,32 @@ export function Login() {
   const [signupPassword, setSignupPassword] = useState('');
   const [signupName, setSignupName] = useState('');
   const [signupNickname, setSignupNickname] = useState('');
+  // 이메일 중복확인 — 다 입력하고 탈락하지 않도록 이메일 입력 직후 미리 검사
+  const [emailStatus, setEmailStatus] =
+    useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle');
+
+  async function handleSignupEmailBlur() {
+    const email = signupEmail.trim();
+    // 형식이 안 갖춰졌으면 서버 호출하지 않음 (submit 시 zod가 형식 검증)
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailStatus('idle');
+      return;
+    }
+    setEmailStatus('checking');
+    try {
+      const { available } = await checkEmail(email);
+      setEmailStatus(available ? 'available' : 'taken');
+    } catch {
+      setEmailStatus('error');
+    }
+  }
 
   function switchTab(next: Tab) {
     setTab(next);
     setGlobalError('');
     setUnverifiedEmail('');
     setResendMessage('');
+    setEmailStatus('idle');
   }
 
   // 리다이렉트 후 쿼리파라미터로 전달되는 에러 안내
@@ -121,6 +141,10 @@ export function Login() {
       setLoginEmail(signupEmail);
       switchTab('login');
     } catch (err) {
+      // 사전 검사를 건너뛰었더라도 서버가 중복을 잡으면 이메일 필드에 바로 표시
+      if (getApiErrorCode(err) === 'AUTH_EMAIL_EXISTS') {
+        setEmailStatus('taken');
+      }
       setGlobalError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
@@ -262,11 +286,21 @@ export function Login() {
                 className={styles.input}
                 type="email"
                 value={signupEmail}
-                onChange={e => setSignupEmail(e.target.value)}
+                onChange={e => { setSignupEmail(e.target.value); setEmailStatus('idle'); }}
+                onBlur={handleSignupEmailBlur}
                 placeholder="example@email.com"
                 autoComplete="email"
                 required
               />
+              {emailStatus === 'checking' && (
+                <p className={styles.fieldHint}>이메일 확인 중...</p>
+              )}
+              {emailStatus === 'available' && (
+                <p className={styles.fieldOk}>사용 가능한 이메일이에요.</p>
+              )}
+              {emailStatus === 'taken' && (
+                <p className={styles.fieldError}>이미 가입된 이메일이에요. 로그인해 주세요.</p>
+              )}
             </div>
             <div className={styles.fieldGroup}>
               <label className={styles.label} htmlFor="signup-name">이름</label>
@@ -310,7 +344,7 @@ export function Login() {
             <button
               type="submit"
               className={styles.submitBtn}
-              disabled={loading || !signupEmail || !signupPassword || !signupName || !signupNickname}
+              disabled={loading || !signupEmail || !signupPassword || !signupName || !signupNickname || emailStatus === 'taken'}
             >
               {loading ? '가입 중...' : '가입하기'}
             </button>

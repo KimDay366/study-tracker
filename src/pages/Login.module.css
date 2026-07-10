@@ -104,6 +104,16 @@
   color: var(--color-danger);
 }
 
+.fieldOk {
+  font-size: var(--text-xs);
+  color: var(--color-primary-dark);
+}
+
+.fieldHint {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
 .submitBtn {
   width: 100%;
   padding: var(--space-3) 0;

@@ -45,6 +45,12 @@ export async function signup(input: SignupInput): Promise<SignupResponse> {
   return data;
 }
 
+/** 이메일 중복확인 — 가입 폼에서 이메일 입력 후 사용 가능 여부를 미리 안내한다. */
+export async function checkEmail(email: string): Promise<{ available: boolean }> {
+  const { data } = await apiClient.post<{ available: boolean }>('/auth/check-email', { email });
+  return data;
+}
+
 export async function verifyEmail(token: string): Promise<{ message: string }> {
   const { data } = await apiClient.post<{ message: string }>('/auth/verify-email', { token });
   return data;
