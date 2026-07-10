@@ -105,7 +105,7 @@ export function LogicList() {
             <div className={styles.emptyIcon}>📭</div>
             <div className={styles.emptyTitle}>아직 플랜이 없어요</div>
             <div className={styles.emptyDesc}>
-              첫 번째 공부 플랜을 만들어 보세요!<br />
+              첫 번째 플랜을 만들어 보세요!<br />
               플랜에 활동과 목표 시간을 설정할 수 있어요.
             </div>
           </div>
@@ -196,7 +196,7 @@ export function LogicList() {
         <Dialog
           icon="🗑️"
           title="플랜을 삭제할까요?"
-          description={`'${deleteTarget.name}' 플랜을 삭제하면 이 플랜의 설정이 사라져요. 기존 공부 기록은 유지돼요.${isCurrentlyUsed(deleteTarget) ? '\n\n현재 오늘의 공부에 사용 중인 플랜이에요.' : ''}`}
+          description={`'${deleteTarget.name}' 플랜을 삭제하면 이 플랜의 설정이 사라져요. 기존 기록은 유지돼요.${isCurrentlyUsed(deleteTarget) ? '\n\n현재 오늘 사용 중인 플랜이에요.' : ''}`}
           cancelLabel="취소"
           confirmLabel="삭제"
           confirmVariant="danger"

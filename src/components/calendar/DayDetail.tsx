@@ -80,7 +80,7 @@ export function DayDetail({
       {/* 기록 없음 / 미래 분기 */}
       {groups.length === 0 ? (
         <div className={styles.emptyState}>
-          {isFuture ? '아직 기록이 없어요.' : '이 날은 공부 기록이 없어요.'}
+          {isFuture ? '아직 기록이 없어요.' : '이 날은 기록이 없어요.'}
         </div>
       ) : (
         // 플랜 그룹마다 섹션 반복 렌더링 (다중 플랜 대응) — 그룹별로 달성률·뱃지·활동 카드를 독립적으로 표시

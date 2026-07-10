@@ -3,7 +3,7 @@ import { useWeeklyReviewBadge } from '@/hooks/useWeeklyReviewBadge';
 import styles from './SideNav.module.css';
 
 const NAV_ITEMS = [
-  { path: '/', label: '오늘의 공부' },
+  { path: '/', label: '오늘의 플랜' },
   { path: '/calendar', label: '달력' },
   { path: '/weekly-review', label: '주간 정리' },
   { path: '/logics', label: '플랜 관리' },

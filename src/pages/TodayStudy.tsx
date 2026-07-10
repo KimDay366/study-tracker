@@ -658,7 +658,7 @@ export function TodayStudy() {
       {isTabletOrPC && (
         <div className={styles.pageHeader}>
           <div className={styles.pageHeaderLeft}>
-            <h1 className={styles.pageTitle}>오늘의 공부</h1>
+            <h1 className={styles.pageTitle}>오늘의 플랜</h1>
             <div className={styles.logicSelectorWrap}>
               <button
                 className={styles.logicSelector}
@@ -728,7 +728,7 @@ export function TodayStudy() {
             {timerStatus === 'idle' ? (
               <>
                 <div className={styles.timerPanelIdleMsg}>
-                  {selectedCategoryId ? '시작 버튼을 눌러 공부를 시작하세요.' : '활동을 선택해 주세요.'}
+                  {selectedCategoryId ? '시작 버튼을 눌러 기록을 시작하세요.' : '활동을 선택해 주세요.'}
                 </div>
                 <div className={styles.timerPanelElapsed}>00:00:00</div>
                 <div className={styles.timerPanelBtns}>
@@ -970,7 +970,7 @@ export function TodayStudy() {
         <Dialog
           title="1분이 채 안 됐어요"
           description="1분 미만 기록은 저장되지 않아요. 그래도 정지할까요?"
-          cancelLabel="공부 계속"
+          cancelLabel="계속하기"
           confirmLabel="정지하고 삭제"
           confirmVariant="danger"
           onCancel={() => { resumeTimer(); setShowShortSessionDialog(false); }}
@@ -981,7 +981,7 @@ export function TodayStudy() {
       {/* 기능 1: 타이머 진행 중 페이지 이탈 경고 다이얼로그 */}
       {blocker.state === 'blocked' && (
         <Dialog
-          title="잠깐, 아직 공부 중이에요!"
+          title="잠깐, 아직 진행 중이에요!"
           description="지금 이동하면 현재 기록이 정지돼요. 1분 이상 기록됐다면 자동으로 저장돼요."
           cancelLabel="머무르기"
           confirmLabel="저장 후 이동"
@@ -1000,7 +1000,7 @@ export function TodayStudy() {
           {timerStatus === 'idle' ? (
             <>
               <div className={styles.timerIdleMsg}>
-                {selectedCategoryId ? '시작 버튼을 눌러 공부를 시작하세요.' : '활동을 선택해 주세요.'}
+                {selectedCategoryId ? '시작 버튼을 눌러 기록을 시작하세요.' : '활동을 선택해 주세요.'}
               </div>
               <div className={styles.timerBtns}>
                 {renderTimerButtons('bar')}

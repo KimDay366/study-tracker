@@ -205,7 +205,7 @@ function AccordionItem({ dateStr, records, isToday, isFuture }: AccordionItemPro
       {open && canToggle && (
         <div className={styles.accordionDetail}>
           {catPercents.length === 0 ? (
-            <div className={styles.noRecord}>이 날은 공부 기록이 없어요.</div>
+            <div className={styles.noRecord}>이 날은 기록이 없어요.</div>
           ) : (
             catPercents.map(cat => (
               <div key={cat.id} className={styles.accordionCatRow}>
@@ -224,7 +224,7 @@ function AccordionItem({ dateStr, records, isToday, isFuture }: AccordionItemPro
             ))
           )}
           {!hasRecord && (
-            <div className={styles.noRecord}>이 날은 공부 기록이 없어요.</div>
+            <div className={styles.noRecord}>이 날은 기록이 없어요.</div>
           )}
         </div>
       )}

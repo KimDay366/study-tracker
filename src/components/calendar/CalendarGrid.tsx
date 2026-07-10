@@ -115,7 +115,7 @@ export function CalendarGrid({
               key={date}
               className={getCellClassName()}
               role="gridcell"
-              aria-label={`${dayOfMonth}일${hasRecord ? `, 공부 ${formatMinutes(info.totalMinutes)}` : ''}`}
+              aria-label={`${dayOfMonth}일${hasRecord ? `, 기록 ${formatMinutes(info.totalMinutes)}` : ''}`}
               aria-selected={isSelected}
               tabIndex={0}
               onClick={() => onSelectDate(date)}
@@ -163,7 +163,7 @@ export function CalendarGrid({
                 </div>
               )}
 
-              {/* 총 공부시간 */}
+              {/* 총 기록 시간 */}
               {hasRecord && info.totalMinutes > 0 && (
                 <span className={styles.cellTime}>{formatMinutes(info.totalMinutes)}</span>
               )}
