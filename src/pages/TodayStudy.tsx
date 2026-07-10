@@ -23,21 +23,13 @@ import { Dialog } from '@/components/common/Dialog';
 import { generateId } from '@/lib/uuid';
 import { formatTimestamp } from '@/hooks/useCalendarMonth';
 import { resolveRoutineLogic, getRoutineBannerText } from '@/hooks/useRoutine';
-import { QUOTES } from '@/lib/quotes';
+import { getDailyQuote } from '@/lib/quotes';
 import styles from './TodayStudy.module.css';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
 function getTodayDateString(): string {
   return getLocalDateString();
-}
-
-// 오늘의 명언: 연중 일수(day-of-year) 기준 결정적 인덱스 — 하루 동안은 리렌더링돼도 고정된다.
-function getDailyQuoteIndex(dateStr: string): number {
-  const d = new Date(dateStr + 'T00:00:00');
-  const startOfYear = new Date(d.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor((d.getTime() - startOfYear.getTime()) / 86400000);
-  return dayOfYear % QUOTES.length;
 }
 
 function formatDateLabel(dateStr: string): { date: string; day: string } {
@@ -115,7 +107,7 @@ export function TodayStudy() {
   const handleStopRef = useRef<((skipShortCheck?: boolean) => void) | null>(null);
 
   const { date: dateLabel, day: dayLabel } = formatDateLabel(todayDateStr);
-  const dailyQuote = QUOTES[getDailyQuoteIndex(todayDateStr)];
+  const dailyQuote = getDailyQuote(todayDateStr);
   const dailyQuoteFull = `${dailyQuote.text} — ${dailyQuote.source}`;
 
   // 선택된 플랜
