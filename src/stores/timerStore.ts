@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SessionAddInput } from '@/api/daily-records';
+import { generateId } from '@/lib/uuid';
 
 export type TimerStatus = 'idle' | 'running' | 'paused';
 
@@ -12,6 +13,8 @@ export interface SessionDraft {
   pauseOffset: number;
   pausedAt: number | null;
   status: 'running' | 'paused';
+  /** 세션당 1개 고정 id. 저장/재시도/flush가 모두 이 id를 재사용해 서버 중복 저장을 막는다. */
+  sessionId?: string;
 }
 
 export function saveSessionDraft(draft: SessionDraft): void {
@@ -115,6 +118,7 @@ interface TimerState {
   sessionStartTimestamp: number | null;
   pauseOffset: number; // 일시정지 누적 오프셋(ms)
   pausedAt: number | null; // 현재 일시정지 시작 시각(ms)
+  sessionId: string | null; // 진행 중 세션의 고정 id(멱등 저장용)
   // Actions
   startTimer: (categoryId: string) => void;
   pauseTimer: () => void;
@@ -131,15 +135,18 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   sessionStartTimestamp: null,
   pauseOffset: 0,
   pausedAt: null,
+  sessionId: null,
 
   startTimer: (categoryId: string) => {
     const now = Date.now();
+    const sessionId = generateId();
     const draft: SessionDraft = {
       categoryId,
       sessionStartTimestamp: now,
       pauseOffset: 0,
       pausedAt: null,
       status: 'running',
+      sessionId,
     };
     saveSessionDraft(draft);
     set({
@@ -148,26 +155,27 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       sessionStartTimestamp: now,
       pauseOffset: 0,
       pausedAt: null,
+      sessionId,
     });
   },
 
   pauseTimer: () => {
-    const { status, categoryId, sessionStartTimestamp, pauseOffset } = get();
+    const { status, categoryId, sessionStartTimestamp, pauseOffset, sessionId } = get();
     if (status !== 'running') return;
     const pausedAt = Date.now();
     if (categoryId && sessionStartTimestamp !== null) {
-      saveSessionDraft({ categoryId, sessionStartTimestamp, pauseOffset, pausedAt, status: 'paused' });
+      saveSessionDraft({ categoryId, sessionStartTimestamp, pauseOffset, pausedAt, status: 'paused', sessionId: sessionId ?? undefined });
     }
     set({ status: 'paused', pausedAt });
   },
 
   resumeTimer: () => {
-    const { status, pausedAt, pauseOffset, categoryId, sessionStartTimestamp } = get();
+    const { status, pausedAt, pauseOffset, categoryId, sessionStartTimestamp, sessionId } = get();
     if (status !== 'paused' || pausedAt === null) return;
     const addedOffset = Date.now() - pausedAt;
     const newOffset = pauseOffset + addedOffset;
     if (categoryId && sessionStartTimestamp !== null) {
-      saveSessionDraft({ categoryId, sessionStartTimestamp, pauseOffset: newOffset, pausedAt: null, status: 'running' });
+      saveSessionDraft({ categoryId, sessionStartTimestamp, pauseOffset: newOffset, pausedAt: null, status: 'running', sessionId: sessionId ?? undefined });
     }
     set({ status: 'running', pauseOffset: newOffset, pausedAt: null });
   },
@@ -180,6 +188,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       sessionStartTimestamp: null,
       pauseOffset: 0,
       pausedAt: null,
+      sessionId: null,
     });
   },
 
@@ -191,6 +200,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       sessionStartTimestamp: null,
       pauseOffset: 0,
       pausedAt: null,
+      sessionId: null,
     });
   },
 
@@ -201,6 +211,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       sessionStartTimestamp: draft.sessionStartTimestamp,
       pauseOffset: draft.pauseOffset,
       pausedAt: draft.pausedAt,
+      // 옛 draft(sessionId 없음) 복원 시에도 저장이 가능하도록 새 id 부여
+      sessionId: draft.sessionId ?? generateId(),
     });
   },
 

@@ -95,10 +95,14 @@ export function TodayStudy() {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [pendingDraft, setPendingDraft] = useState<SessionDraft | null>(null);
   const [showShortSessionDialog, setShowShortSessionDialog] = useState(false);
+  // 정지 저장 진행 중 표시(버튼 비활성 + "저장 중…"). 연타/중복 저장 방지.
+  const [isStopping, setIsStopping] = useState(false);
 
   // stale closure 방지: 스토어 액션을 ref로 보관
   const getElapsedMsRef = useRef(getElapsedMs);
   getElapsedMsRef.current = getElapsedMs;
+  // 재진입 가드: setState는 비동기라 연타 사이에 반영이 늦으므로 동기 ref로 즉시 차단
+  const isStoppingRef = useRef(false);
 
   // 이탈 가드: 타이머 진행 중(running OR paused)일 때 앱 내 네비게이션 차단
   const isTimerActive = timerStatus !== 'idle';
@@ -220,11 +224,16 @@ export function TodayStudy() {
       const prevDur = Math.floor(Math.max(0, getElapsedMsRef.current() - todayWallMs) / 60000);
       const todayDur = Math.floor(todayWallMs / 60000);
 
+      // 전날 조각은 '현재 세션'이므로 현재 sessionId를 재사용(멱등), 오늘 조각엔 새 id 부여
+      const prevSessionId = timerState.sessionId ?? generateId();
+      const nextSessionId = generateId();
+
       // 타이머를 오늘 자정부터 새로 시작(세션 분리) — 저장 전에 리셋해 다음 tick이 중복 분리하지 않도록
       useTimerStore.setState({
         sessionStartTimestamp: midnight,
         pauseOffset: 0,
         pausedAt: null,
+        sessionId: nextSessionId,
       });
 
       // 전날·오늘 세션을 비동기로 저장 (각각 useAddSession().mutateAsync 호출)
@@ -235,7 +244,7 @@ export function TodayStudy() {
 
         if (prevDur >= 1) {
           const prevBody: SessionAddInput = {
-            id: generateId(),
+            id: prevSessionId,
             categoryId: catId,
             sessionStartTimestamp: start,
             sessionEndTimestamp: midnight - 1,
@@ -253,7 +262,7 @@ export function TodayStudy() {
 
         if (todayDur >= 1) {
           const todayBody: SessionAddInput = {
-            id: generateId(),
+            id: nextSessionId,
             categoryId: catId,
             sessionStartTimestamp: midnight,
             sessionEndTimestamp: now,
@@ -326,6 +335,8 @@ export function TodayStudy() {
   // 정지 — 세션 저장 및 achievementCache 갱신
   const handleStop = useCallback(async (skipShortCheck = false) => {
     if (!selectedLogic || !timerCategoryId || sessionStartTimestamp === null) return;
+    // 재진입 가드: 이미 저장 중이면 연타를 무시(중복 저장/중복 mutateAsync 방지)
+    if (isStoppingRef.current) return;
 
     const now = Date.now();
     // 저장 시간은 화면 표시와 동일하게 '일시정지 제외' 실제 공부 시간으로 계산
@@ -340,34 +351,43 @@ export function TodayStudy() {
       return;
     }
 
-    // 1분 이상인 경우만 저장
-    if (durationMinutes >= 1) {
-      const body: SessionAddInput = {
-        id: generateId(),
-        categoryId: timerCategoryId,
-        sessionStartTimestamp,
-        sessionEndTimestamp: now,
-        durationMinutes,
-        source: 'timer',
-        logicId: selectedLogic.id,
-        logicSnapshot: buildLogicSnapshot(selectedLogic),
-      };
-      try {
-        await addSessionMutation.mutateAsync({ date: todayDateStr, body });
-        showToast(`${durationMinutes}분 기록 완료!`, 'success');
-      } catch {
-        // 자정분리 경로와 동일하게, 저장 실패 시에도 데이터를 폐기하지 않고 로컬 큐에 보존해
-        // 다음 접속 때 자동 재시도되도록 한다(Minor-3: 경로 간 일관성 보강). 토스트는 기존 그대로 유지.
-        saveFailedSession({ localId: generateId(), date: todayDateStr, body });
-        showToast('저장 중 오류가 발생했어요.', 'danger');
-        stopTimer();
-        setElapsedMs(0);
-        return;
-      }
-    }
+    // 정지를 누른 즉시 화면 초시계를 멈춘다(네트워크 저장이 느려도 사용자가 "안 멈췄다"고 오해하지 않도록).
+    // pauseTimer로 tick 인터벌을 정리하고 표시값을 정지 시점으로 동결한다.
+    pauseTimer();
+    setElapsedMs(durationMinutes >= 1 ? getElapsedMsRef.current() : 0);
+    isStoppingRef.current = true;
+    setIsStopping(true);
 
-    stopTimer();
-    setElapsedMs(0);
+    try {
+      // 1분 이상인 경우만 저장. 세션당 고정 id를 재사용해 재시도/새로고침 flush 시에도 서버가 멱등 처리한다.
+      if (durationMinutes >= 1) {
+        const sessionId = useTimerStore.getState().sessionId ?? generateId();
+        const body: SessionAddInput = {
+          id: sessionId,
+          categoryId: timerCategoryId,
+          sessionStartTimestamp,
+          sessionEndTimestamp: now,
+          durationMinutes,
+          source: 'timer',
+          logicId: selectedLogic.id,
+          logicSnapshot: buildLogicSnapshot(selectedLogic),
+        };
+        try {
+          await addSessionMutation.mutateAsync({ date: todayDateStr, body });
+          showToast(`${durationMinutes}분 기록 완료!`, 'success');
+        } catch {
+          // 자정분리 경로와 동일하게, 저장 실패 시에도 데이터를 폐기하지 않고 로컬 큐에 보존해
+          // 다음 접속 때 자동 재시도되도록 한다(Minor-3: 경로 간 일관성 보강). 토스트는 기존 그대로 유지.
+          saveFailedSession({ localId: generateId(), date: todayDateStr, body });
+          showToast('저장 중 오류가 발생했어요.', 'danger');
+        }
+      }
+      stopTimer();
+      setElapsedMs(0);
+    } finally {
+      isStoppingRef.current = false;
+      setIsStopping(false);
+    }
   }, [
     selectedLogic, timerCategoryId, sessionStartTimestamp,
     todayDateStr, addSessionMutation, stopTimer, pauseTimer, showToast,
@@ -384,6 +404,8 @@ export function TodayStudy() {
   const handleResume = useCallback(async () => {
     const timerState = useTimerStore.getState();
     const { pausedAt, sessionStartTimestamp: start, categoryId: catId } = timerState;
+    // 전날 조각은 '현재 세션'이므로 현재 sessionId를 재사용(멱등), 오늘 이어가는 세션엔 새 id 부여
+    const prevSessionId = timerState.sessionId ?? generateId();
     if (timerState.status !== 'paused' || pausedAt === null || start === null || !catId) {
       resumeTimer();
       return;
@@ -411,16 +433,17 @@ export function TodayStudy() {
     // (paused 상태이므로 getElapsedMs가 pausedAt 기준 누적 공부시간을 반환 = 벽시계 부풀림 방지)
     const prevDur = Math.floor(getElapsedMsRef.current() / 60000);
 
-    // 타이머를 재개 시점(now)에서 새 세션으로 리셋
+    // 타이머를 재개 시점(now)에서 새 세션으로 리셋(새 sessionId 부여)
     useTimerStore.setState({
       sessionStartTimestamp: now,
       pauseOffset: 0,
       pausedAt: null,
       status: 'running',
+      sessionId: generateId(),
     });
 
     const prevBody: SessionAddInput = {
-      id: generateId(),
+      id: prevSessionId,
       categoryId: catId,
       sessionStartTimestamp: start,
       sessionEndTimestamp: pausedAt,
@@ -571,11 +594,11 @@ export function TodayStudy() {
     if (timerStatus === 'running') {
       return (
         <>
-          <button className={`${btnClass} ${pauseCls}`} onClick={pauseTimer} aria-label="일시정지">
+          <button className={`${btnClass} ${pauseCls}`} onClick={pauseTimer} disabled={isStopping} aria-label="일시정지">
             일시정지
           </button>
-          <button className={`${btnClass} ${stopCls}`} onClick={() => void handleStop()} aria-label="타이머 정지">
-            정지
+          <button className={`${btnClass} ${stopCls}`} onClick={() => void handleStop()} disabled={isStopping} aria-label="타이머 정지">
+            {isStopping ? '저장 중…' : '정지'}
           </button>
         </>
       );
@@ -583,11 +606,11 @@ export function TodayStudy() {
     // paused
     return (
       <>
-        <button className={`${btnClass} ${startCls}`} onClick={() => void handleResume()} aria-label="타이머 재개">
+        <button className={`${btnClass} ${startCls}`} onClick={() => void handleResume()} disabled={isStopping} aria-label="타이머 재개">
           재개
         </button>
-        <button className={`${btnClass} ${stopCls}`} onClick={() => void handleStop()} aria-label="타이머 정지">
-          정지
+        <button className={`${btnClass} ${stopCls}`} onClick={() => void handleStop()} disabled={isStopping} aria-label="타이머 정지">
+          {isStopping ? '저장 중…' : '정지'}
         </button>
       </>
     );
